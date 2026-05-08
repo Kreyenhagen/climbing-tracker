@@ -11,16 +11,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0e0f0c;
-    --surface: #171814;
-    --surface2: #1f211c;
-    --border: rgba(255,255,255,0.07);
-    --accent: #c8f04a;
-    --accent-dim: rgba(200,240,74,0.12);
-    --accent-text: #0e0f0c;
-    --text: #e8e9e4;
-    --muted: #6b6d65;
-    --danger: #f06449;
+    --bg: #f4f5f0;
+    --surface: #ffffff;
+    --surface2: #eaece5;
+    --border: rgba(0,0,0,0.09);
+    --accent: #5a9e0f;
+    --accent-dim: rgba(90,158,15,0.1);
+    --accent-text: #ffffff;
+    --text: #1a1c17;
+    --muted: #7a8070;
+    --danger: #d63c22;
     --r: 6px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -103,12 +103,12 @@
   }
   .bench-val.empty { color: var(--muted); }
   .btn-log {
-    background: var(--accent-dim); border: 1px solid rgba(200,240,74,0.2);
+    background: var(--accent-dim); border: 1px solid rgba(90,158,15,0.2);
     color: var(--accent); border-radius: 6px; padding: 6px 12px;
     font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer;
     white-space: nowrap; transition: background 0.15s;
   }
-  .btn-log:active { background: rgba(200,240,74,0.25); }
+  .btn-log:active { background: rgba(90,158,15,0.25); }
 
   /* SESSION */
   .session-type {
@@ -122,7 +122,7 @@
     transition: all 0.15s;
   }
   .type-btn.active {
-    background: var(--accent-dim); border-color: rgba(200,240,74,0.3);
+    background: var(--accent-dim); border-color: rgba(90,158,15,0.35);
     color: var(--accent);
   }
   .input-row { margin-bottom: 12px; }
@@ -133,7 +133,7 @@
     font-family: 'DM Sans', sans-serif; font-size: 14px;
     outline: none; -webkit-appearance: none;
   }
-  .input-row input:focus, .input-row textarea:focus { border-color: rgba(200,240,74,0.3); }
+  .input-row input:focus, .input-row textarea:focus { border-color: rgba(90,158,15,0.35); }
   .input-row textarea { resize: none; height: 80px; }
   .btn-primary {
     width: 100%; padding: 14px;
@@ -155,6 +155,10 @@
   /* PROGRESS */
   .stat-grid {
     display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-bottom: 10px;
+  }
+  .stat-grid-3 {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
     margin-bottom: 16px;
   }
   .stat-card {
@@ -243,14 +247,14 @@
     font-family: 'DM Sans', sans-serif; font-size: 14px;
     outline: none; -webkit-appearance: none;
   }
-  .ex-num-input:focus { border-color: rgba(200,240,74,0.3); }
+  .ex-num-input:focus { border-color: rgba(90,158,15,0.35); }
   .ex-select {
     width: 100%; background: var(--bg); border: 1px solid var(--border);
     border-radius: 4px; color: var(--text); padding: 8px 10px;
     font-family: 'DM Sans', sans-serif; font-size: 14px;
     outline: none; -webkit-appearance: none;
   }
-  .ex-select:focus { border-color: rgba(200,240,74,0.3); }
+  .ex-select:focus { border-color: rgba(90,158,15,0.35); }
 
   /* Campus L/R grid */
   .campus-grid {
@@ -298,7 +302,7 @@
     white-space: nowrap; transition: all 0.15s;
   }
   .bench-tab.active {
-    background: var(--accent-dim); border-color: rgba(200,240,74,0.3);
+    background: var(--accent-dim); border-color: rgba(90,158,15,0.35);
     color: var(--accent);
   }
   #bench-chart { width: 100%; display: block; }
@@ -351,6 +355,7 @@
     <p>Your training journey</p>
   </div>
   <div class="stat-grid" id="stat-grid"></div>
+  <div class="stat-grid-3" id="stat-grid-days"></div>
   <div class="card">
     <div class="card-label">Benchmark progression</div>
     <div class="bench-tabs" id="bench-tabs"></div>
@@ -462,7 +467,7 @@ const V_GRADES = ['V0','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10','V11',
 const PYRAMID_COLORS = [
   { id: 'purple', label: 'Purple', dot: '#a855f7' },
   { id: 'orange', label: 'Orange', dot: '#f97316' },
-  { id: 'black',  label: 'Black',  dot: '#e8e9e4' },
+  { id: 'black',  label: 'Black',  dot: '#1a1c17' },
   { id: 'blue',   label: 'Blue',   dot: '#3b82f6' },
 ];
 
@@ -693,6 +698,8 @@ function renderProgress() {
   document.getElementById('stat-grid').innerHTML = `
     <div class="stat-card"><div class="stat-num">${totalSessions}</div><div class="stat-label">Sessions logged</div></div>
     <div class="stat-card"><div class="stat-num">${allBench}</div><div class="stat-label">Benchmark entries</div></div>
+  `;
+  document.getElementById('stat-grid-days').innerHTML = `
     <div class="stat-card"><div class="stat-num">${aCount}</div><div class="stat-label">Strength days</div></div>
     <div class="stat-card"><div class="stat-num">${bCount}</div><div class="stat-label">Power days</div></div>
     <div class="stat-card"><div class="stat-num">${cCount}</div><div class="stat-label">Volume days</div></div>
@@ -782,10 +789,10 @@ function drawBenchChart(benchId) {
   const xPos = i => PAD.left + (entries.length === 1 ? W / 2 : (i / (entries.length - 1)) * W);
   const yPos = v => PAD.top + LEGEND_H + H - ((v - minVal) / valRange) * H;
 
-  const COLOR1    = '#c8f04a';           // accent green — 1st skip / single series
-  const COLOR2    = '#4ab4f0';           // blue — 2nd skip
-  const mutedCol  = '#6b6d65';
-  const gridColor = 'rgba(255,255,255,0.05)';
+  const COLOR1    = '#5a9e0f';           // accent green — 1st skip / single series
+  const COLOR2    = '#1a7aaa';           // blue — 2nd skip
+  const mutedCol  = '#7a8070';
+  const gridColor = 'rgba(0,0,0,0.06)';
 
   ctx.clearRect(0, 0, cssW, cssH);
 
@@ -862,8 +869,8 @@ function drawBenchChart(benchId) {
     });
   }
 
-  drawSeries('value',  COLOR1, isDual ? 'rgba(200,240,74,0.05)' : 'rgba(200,240,74,0.07)');
-  if (isDual) drawSeries('value2', COLOR2, 'rgba(74,180,240,0.05)');
+  drawSeries('value',  COLOR1, isDual ? 'rgba(90,158,15,0.08)' : 'rgba(90,158,15,0.1)');
+  if (isDual) drawSeries('value2', COLOR2, 'rgba(26,122,170,0.08)');
 
   // Date labels (shared x axis, drawn once from first series)
   ctx.font = '9px DM Mono, monospace';
@@ -926,18 +933,18 @@ function drawExerciseChart(day, exId) {
   let series = [];
 
   if (ex.type === 'weight') {
-    series = [{ label: 'Weight (lbs)', color: '#c8f04a', points:
+    series = [{ label: 'Weight (lbs)', color: '#5a9e0f', points:
       relevantSessions.map(s => { const v = parseFloat(s.exercises[exId].weight); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean)
     }];
 
   } else if (ex.type === 'grade') {
-    series = [{ label: 'Max grade', color: '#c8f04a', isGrade: true, points:
+    series = [{ label: 'Max grade', color: '#5a9e0f', isGrade: true, points:
       relevantSessions.map(s => { const g = s.exercises[exId].grade; const idx = V_GRADES.indexOf(g); return idx < 0 ? null : { date: s.date, value: idx, vLabel: g }; }).filter(Boolean)
     }];
 
   } else if (ex.type === 'attempted-flashed') {
     series = [
-      { label: 'Attempted', color: '#c8f04a', points: relevantSessions.map(s => { const v = parseFloat(s.exercises[exId].attempted); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean) },
+      { label: 'Attempted', color: '#5a9e0f', points: relevantSessions.map(s => { const v = parseFloat(s.exercises[exId].attempted); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean) },
       { label: 'Flashed',   color: '#4ab4f0', points: relevantSessions.map(s => { const v = parseFloat(s.exercises[exId].flashed);   return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean) },
     ];
 
@@ -945,7 +952,7 @@ function drawExerciseChart(day, exId) {
     const pCols = [
       { id: 'purple', label: 'Purple', color: '#a855f7' },
       { id: 'orange', label: 'Orange', color: '#f97316' },
-      { id: 'black',  label: 'Black',  color: '#9ca3af' },
+      { id: 'black',  label: 'Black',  color: '#1a1c17' },
       { id: 'blue',   label: 'Blue',   color: '#3b82f6' },
     ];
     series = pCols.map(pc => ({ label: pc.label, color: pc.color, points:
@@ -1009,8 +1016,8 @@ function drawExerciseChart(day, exId) {
   const xPos = i => PAD.left + (n === 1 ? W / 2 : (i / (n - 1)) * W);
   const yPos = v => PAD.top + LEGEND_H + H - ((v - minVal) / valRange) * H;
 
-  const mutedCol  = '#6b6d65';
-  const gridColor = 'rgba(255,255,255,0.05)';
+  const mutedCol  = '#7a8070';
+  const gridColor = 'rgba(0,0,0,0.06)';
 
   ctx.clearRect(0, 0, cssW, cssH);
 
