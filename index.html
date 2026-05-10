@@ -1913,74 +1913,27 @@ function importBackup(input) {
 function today() { return new Date().toISOString().split('T')[0]; }
 
 // ── HOME SCREEN ICON ──────────────────────────────────────────────────────
+//<div> Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik"> 
+// Freepik </a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com'</a></div>
 function setAppIcon() {
   const S = 180, c = document.createElement('canvas');
   c.width = S; c.height = S;
   const ctx = c.getContext('2d');
-
-  // Background
-  ctx.fillStyle = '#13160f';
-  ctx.fillRect(0, 0, S, S);
-
-  // Rock polygon — chunky irregular 8-point boulder
-  const rock = [[48,22],[124,15],[166,66],[163,136],[114,164],[36,160],[10,106],[16,50]];
-  function pathRock() {
-    ctx.beginPath();
-    rock.forEach(([x,y], i) => i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y));
-    ctx.closePath();
-  }
-
-  // Base fill (lower/darker face)
-  pathRock();
-  ctx.fillStyle = '#6a6358';
-  ctx.fill();
-
-  // Light upper face — clip to rock, overlay upper-left wedge
-  ctx.save();
-  pathRock(); ctx.clip();
-  ctx.beginPath();
-  ctx.moveTo(-5, -5); ctx.lineTo(185, -5);
-  ctx.lineTo(90, 93); ctx.lineTo(-5, 185);
-  ctx.closePath();
-  ctx.fillStyle = '#a09488';
-  ctx.fill();
-  ctx.restore();
-
-  // Geometric ridge lines from center point — give it that faceted rock feel
-  ctx.save();
-  pathRock(); ctx.clip();
-  ctx.strokeStyle = 'rgba(0,0,0,0.18)';
-  ctx.lineWidth = 2;
-  ctx.lineCap = 'round';
-  [[124,15],[10,106],[114,164]].forEach(([x,y]) => {
-    ctx.beginPath(); ctx.moveTo(90, 93); ctx.lineTo(x, y); ctx.stroke();
-  });
-  ctx.restore();
-
-  // Bold rock outline
-  pathRock();
-  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-  ctx.lineWidth = 3;
-  ctx.stroke();
-
-  // Climbing holds — 3 green circles with rim + highlight
-  [[68,62],[130,86],[70,126]].forEach(([x,y]) => {
-    ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2);
-    ctx.fillStyle = '#2e5506'; ctx.fill();
-
-    ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2);
-    ctx.fillStyle = '#5a9e0f'; ctx.fill();
-
-    ctx.beginPath(); ctx.arc(x - 3, y - 3, 3.5, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.fill();
-  });
-
-  const link = document.createElement('link');
-  link.rel = 'apple-touch-icon';
-  link.href = c.toDataURL('image/png');
-  document.head.appendChild(link);
+  const img = new Image();
+  img.onload = () => {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, S, S);
+    const size = Math.round(S * 0.70);
+    const offset = (S - size) / 2;
+    ctx.drawImage(img, offset, offset, size, size);
+    const link = document.createElement('link');
+    link.rel = 'apple-touch-icon';
+    link.href = c.toDataURL('image/png');
+    document.head.appendChild(link);
+  };
+  img.src = 'rock.png';
 }
-document.fonts.ready.then(setAppIcon);
+setAppIcon();
 
 populateWorkoutDropdown();
 renderBenchmarks();
