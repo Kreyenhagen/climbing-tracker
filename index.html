@@ -418,7 +418,6 @@
   <div class="workout-btn-row">
     <button class="btn-secondary" onclick="openCreateWorkout()" style="margin-top:0">+ Create Workout</button>
     <button class="btn-edit-sm" id="edit-workout-btn" onclick="openEditWorkout()" style="display:none">Edit</button>
-    <button class="btn-danger-sm" id="delete-workout-btn" onclick="deleteCurrentWorkout()" style="display:none">Delete</button>
   </div>
   <div class="input-row">
     <label>Date</label>
@@ -493,6 +492,8 @@
     <button class="btn-secondary" onclick="openExercisePicker()" style="margin-top:4px">+ Add Exercise</button>
     <div style="height:12px"></div>
     <button class="btn-primary" onclick="saveWorkout()">SAVE WORKOUT</button>
+    <div style="height:8px"></div>
+    <button class="btn-danger-sm" id="wb-delete-btn" onclick="deleteCurrentWorkout()" style="display:none;width:100%;padding:12px;text-align:center">DELETE WORKOUT</button>
   </div>
 </div>
 
@@ -777,8 +778,7 @@ function populateWorkoutDropdown() {
     const w = getWorkoutDef(id);
     return `<option value="${id}"${id === currentWorkoutId ? ' selected' : ''}>${w ? w.name : id}</option>`;
   }).join('');
-  document.getElementById('edit-workout-btn').style.display   = currentWorkoutId ? '' : 'none';
-  document.getElementById('delete-workout-btn').style.display = currentWorkoutId ? '' : 'none';
+  document.getElementById('edit-workout-btn').style.display = currentWorkoutId ? '' : 'none';
 }
 
 function selectWorkout(id) {
@@ -793,6 +793,7 @@ function openCreateWorkout() {
   wbExerciseIds = [];
   document.getElementById('wb-modal-title').textContent = 'Create Workout';
   document.getElementById('wb-name').value = '';
+  document.getElementById('wb-delete-btn').style.display = 'none';
   renderWbExercises();
   document.getElementById('workout-builder-modal').classList.add('open');
 }
@@ -804,6 +805,7 @@ function openEditWorkout() {
   wbExerciseIds = [...w.exercises];
   document.getElementById('wb-modal-title').textContent = 'Edit Workout';
   document.getElementById('wb-name').value = w.name;
+  document.getElementById('wb-delete-btn').style.display = '';
   renderWbExercises();
   document.getElementById('workout-builder-modal').classList.add('open');
 }
@@ -838,6 +840,7 @@ function saveWorkout() {
 
 function deleteCurrentWorkout() {
   if (!confirm('Delete this workout?')) return;
+  closeWorkoutBuilder();
   if (['A','B','C'].includes(currentWorkoutId)) {
     if (!deletedBuiltins.includes(currentWorkoutId)) deletedBuiltins.push(currentWorkoutId);
     save('deletedBuiltins', deletedBuiltins);
@@ -1916,49 +1919,61 @@ function setAppIcon() {
   const ctx = c.getContext('2d');
 
   // Background
-  const bg = ctx.createLinearGradient(0, 0, S, S);
-  bg.addColorStop(0, '#1e2418'); bg.addColorStop(1, '#111410');
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, S, S);
+  ctx.fillStyle = '#13160f';
+  ctx.fillRect(0, 0, S, S);
 
-  // Back mountain (offset left, slightly lighter)
+  // Rock polygon — chunky irregular 8-point boulder
+  const rock = [[48,22],[124,15],[166,66],[163,136],[114,164],[36,160],[10,106],[16,50]];
+  function pathRock() {
+    ctx.beginPath();
+    rock.forEach(([x,y], i) => i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y));
+    ctx.closePath();
+  }
+
+  // Base fill (lower/darker face)
+  pathRock();
+  ctx.fillStyle = '#6a6358';
+  ctx.fill();
+
+  // Light upper face — clip to rock, overlay upper-left wedge
+  ctx.save();
+  pathRock(); ctx.clip();
   ctx.beginPath();
-  ctx.moveTo(42, 78); ctx.lineTo(148, 148); ctx.lineTo(0, 148);
-  ctx.closePath(); ctx.fillStyle = '#1e2a14'; ctx.fill();
+  ctx.moveTo(-5, -5); ctx.lineTo(185, -5);
+  ctx.lineTo(90, 93); ctx.lineTo(-5, 185);
+  ctx.closePath();
+  ctx.fillStyle = '#a09488';
+  ctx.fill();
+  ctx.restore();
 
-  // Main mountain
-  ctx.beginPath();
-  ctx.moveTo(90, 20); ctx.lineTo(166, 148); ctx.lineTo(14, 148);
-  ctx.closePath(); ctx.fillStyle = '#273320'; ctx.fill();
-
-  // Snow cap
-  ctx.beginPath();
-  ctx.moveTo(90, 20); ctx.lineTo(113, 60); ctx.lineTo(67, 60);
-  ctx.closePath(); ctx.fillStyle = 'rgba(238,248,228,0.90)'; ctx.fill();
-
-  // Dashed route line from summit down
-  ctx.strokeStyle = '#5a9e0f'; ctx.lineWidth = 3.2;
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.setLineDash([7, 4]);
-  ctx.beginPath();
-  ctx.moveTo(90, 22); ctx.lineTo(97, 60);
-  ctx.lineTo(85, 96); ctx.lineTo(92, 133);
-  ctx.stroke(); ctx.setLineDash([]);
-
-  // Summit marker
-  ctx.fillStyle = '#5a9e0f';
-  ctx.beginPath(); ctx.arc(90, 22, 6.5, 0, Math.PI * 2); ctx.fill();
-
-  // Intermediate waypoints
-  [[97, 60], [85, 96], [92, 133]].forEach(([x, y]) => {
-    ctx.fillStyle = 'rgba(90,158,15,0.55)';
-    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.fill();
+  // Geometric ridge lines from center point — give it that faceted rock feel
+  ctx.save();
+  pathRock(); ctx.clip();
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  [[124,15],[10,106],[114,164]].forEach(([x,y]) => {
+    ctx.beginPath(); ctx.moveTo(90, 93); ctx.lineTo(x, y); ctx.stroke();
   });
+  ctx.restore();
 
-  // "SEND IT" label
-  ctx.fillStyle = '#74cc12';
-  ctx.font = 'bold 19px "Arial Black", "Arial Bold", Arial, sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  ctx.fillText('SEND IT', 90, 175);
+  // Bold rock outline
+  pathRock();
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Climbing holds — 3 green circles with rim + highlight
+  [[68,62],[130,86],[70,126]].forEach(([x,y]) => {
+    ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2);
+    ctx.fillStyle = '#2e5506'; ctx.fill();
+
+    ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2);
+    ctx.fillStyle = '#5a9e0f'; ctx.fill();
+
+    ctx.beginPath(); ctx.arc(x - 3, y - 3, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.fill();
+  });
 
   const link = document.createElement('link');
   link.rel = 'apple-touch-icon';
