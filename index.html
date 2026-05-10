@@ -154,7 +154,7 @@
 
   /* PROGRESS */
   .stat-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
     margin-bottom: 10px;
   }
   .stat-grid-3 {
@@ -310,6 +310,84 @@
     text-align: center; padding: 36px 0;
     color: var(--muted); font-size: 12px; font-family: 'DM Mono', monospace;
   }
+
+  /* WORKOUT SELECTOR */
+  .workout-btn-row { display: flex; gap: 8px; margin-bottom: 16px; margin-top: -4px; }
+  .workout-btn-row .btn-secondary { flex: 1; margin-top: 0; padding: 10px; }
+
+  /* EXERCISE SINGLE WRAPPER */
+  .ex-single label {
+    display: block; font-size: 11px; color: var(--muted);
+    font-family: 'DM Mono', monospace; margin-bottom: 4px;
+  }
+
+  /* WORKOUT BUILDER CHIPS */
+  .workout-ex-chip {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; margin-bottom: 6px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r);
+  }
+  .chip-name { font-size: 13px; font-weight: 500; }
+  .chip-type { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .chip-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+  .chip-remove {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    padding: 4px 6px; font-size: 16px; line-height: 1; border-radius: 4px;
+  }
+  .chip-remove:hover { color: var(--danger); }
+
+  /* EXERCISE PICKER */
+  .ep-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 0; border-bottom: 1px solid var(--border);
+  }
+  .ep-item:last-child { border-bottom: none; }
+  .ep-item-name { font-size: 13px; font-weight: 500; }
+  .ep-item-type { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .ep-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  /* SMALL BUTTONS */
+  .btn-add-sm {
+    background: var(--accent-dim); border: 1px solid rgba(90,158,15,0.25);
+    color: var(--accent); border-radius: 6px; padding: 6px 12px;
+    font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer; white-space: nowrap;
+  }
+  .btn-edit-sm {
+    background: transparent; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--muted); font-family: 'DM Mono', monospace; font-size: 11px;
+    padding: 6px 12px; cursor: pointer; white-space: nowrap;
+  }
+  .btn-danger-sm {
+    background: transparent; border: 1px solid rgba(214,60,34,0.3); border-radius: 6px;
+    color: var(--danger); font-family: 'DM Mono', monospace; font-size: 11px;
+    padding: 6px 12px; cursor: pointer; white-space: nowrap;
+  }
+
+  /* CIRCUIT BUILDER */
+  .circuit-type-btn {
+    padding: 5px 10px; font-family: 'DM Mono', monospace; font-size: 11px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--muted); cursor: pointer;
+  }
+  .circuit-type-btn.active {
+    background: var(--accent-dim); border-color: rgba(90,158,15,0.35); color: var(--accent);
+  }
+  .color-swatch {
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: border-color 0.1s, transform 0.1s; flex-shrink: 0;
+  }
+  .color-swatch.selected { border-color: var(--accent); transform: scale(1.15); }
+
+  /* CIRCUIT LOG GRID */
+  .circuit-log-grid {
+    display: grid; grid-template-columns: auto 80px; gap: 6px 8px; align-items: center;
+  }
+  .circuit-log-grid.both-tracking { grid-template-columns: auto 68px 68px; }
+  .clg-hdr { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; text-align: center; }
+  .clg-label { font-size: 12px; font-family: 'DM Mono', monospace; display: flex; align-items: center; gap: 5px; }
+
+  /* LOG DOT VARIANTS */
+  .log-dot.day-custom { background: #f0b44a; }
 </style>
 </head>
 <body>
@@ -320,6 +398,7 @@
     <h1>Benchmarks</h1>
     <p>Log tests to track your baseline progress</p>
   </div>
+  <button class="btn-secondary" onclick="openCreateBenchmark()" style="margin-bottom:12px;margin-top:-8px">+ Create Benchmark</button>
   <div class="card">
     <div id="bench-list"></div>
   </div>
@@ -331,10 +410,14 @@
     <h1>Log Session</h1>
     <p>Record today's training</p>
   </div>
-  <div class="session-type">
-    <button class="type-btn active" data-day="A" onclick="selectDay(this)">Day A<br>Strength</button>
-    <button class="type-btn" data-day="B" onclick="selectDay(this)">Day B<br>Power</button>
-    <button class="type-btn" data-day="C" onclick="selectDay(this)">Day C<br>Volume</button>
+  <div class="input-row" style="margin-bottom:8px">
+    <label>Workout</label>
+    <select id="workout-select" onchange="selectWorkout(this.value)" class="ex-select" style="width:100%"></select>
+  </div>
+  <div class="workout-btn-row">
+    <button class="btn-secondary" onclick="openCreateWorkout()" style="margin-top:0">+ Create Workout</button>
+    <button class="btn-edit-sm" id="edit-workout-btn" onclick="openEditWorkout()" style="display:none">Edit</button>
+    <button class="btn-danger-sm" id="delete-workout-btn" onclick="deleteCurrentWorkout()" style="display:none">Delete</button>
   </div>
   <div class="input-row">
     <label>Date</label>
@@ -391,6 +474,103 @@
   </button>
 </nav>
 
+<!-- MODAL: Workout Builder -->
+<div class="modal-overlay" id="workout-builder-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeWorkoutBuilder()">✕</button>
+    <div class="modal-title" id="wb-modal-title">Create Workout</div>
+    <div class="input-row">
+      <label>Workout name</label>
+      <input type="text" id="wb-name" placeholder="e.g. Push Day, Bouldering Session">
+    </div>
+    <div class="card-label" style="margin-bottom:8px">Exercises</div>
+    <div id="wb-exercise-list"></div>
+    <button class="btn-secondary" onclick="openExercisePicker()" style="margin-top:4px">+ Add Exercise</button>
+    <div style="height:12px"></div>
+    <button class="btn-primary" onclick="saveWorkout()">SAVE WORKOUT</button>
+  </div>
+</div>
+
+<!-- MODAL: Exercise Picker -->
+<div class="modal-overlay" id="exercise-picker-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeExercisePicker()">✕</button>
+    <div class="modal-title">Add Exercise</div>
+    <div id="ep-exercise-list"></div>
+    <div style="height:16px"></div>
+    <button class="btn-secondary" onclick="openCreateExercise()" style="margin-top:0">+ Create New Exercise</button>
+  </div>
+</div>
+
+<!-- MODAL: Create / Edit Exercise -->
+<div class="modal-overlay" id="create-exercise-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeCreateExercise()">✕</button>
+    <div class="modal-title" id="ce-modal-title">New Exercise</div>
+    <div class="input-row">
+      <label>Name</label>
+      <input type="text" id="ce-name" placeholder="e.g. One-arm dead hang">
+    </div>
+    <div class="input-row">
+      <label>Input Type</label>
+      <select id="ce-type" onchange="renderExTypeConfig()" class="ex-select" style="width:100%">
+        <option value="weight">Weight (lbs)</option>
+        <option value="time">Time (seconds)</option>
+        <option value="grade">Grade (V-scale)</option>
+        <option value="attempts">Attempts (count)</option>
+        <option value="sends">Sends (count)</option>
+        <option value="campus-lr">Campus Ladder (L/R per rung)</option>
+        <option value="circuit">Circuit (grades / colors)</option>
+      </select>
+    </div>
+    <div id="ce-type-config"></div>
+    <div style="height:12px"></div>
+    <button class="btn-primary" onclick="saveNewExercise()">SAVE EXERCISE</button>
+    <div style="height:8px"></div>
+    <button class="btn-danger-sm" id="ce-delete-btn" onclick="deleteExercise()" style="display:none;width:100%;padding:12px;text-align:center">DELETE EXERCISE</button>
+  </div>
+</div>
+
+<!-- MODAL: Create / Edit Benchmark -->
+<div class="modal-overlay" id="bench-edit-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeBenchEdit()">✕</button>
+    <div class="modal-title" id="be-modal-title">New Benchmark</div>
+    <div class="input-row">
+      <label>Name</label>
+      <input type="text" id="be-name" placeholder="e.g. Max weighted pull-up">
+    </div>
+    <div class="input-row">
+      <label>Unit</label>
+      <input type="text" id="be-unit" placeholder="e.g. seconds, lbs, mm">
+    </div>
+    <div class="input-row">
+      <label>Target / Goal (optional)</label>
+      <input type="text" id="be-target" placeholder="e.g. baseline +20 lbs">
+    </div>
+    <div class="input-row">
+      <label>Input values</label>
+      <div style="display:flex;gap:8px">
+        <button class="type-btn active" id="be-single-btn" onclick="setBeDual(false)" style="flex:1;padding:8px;font-size:11px">Single value</button>
+        <button class="type-btn" id="be-dual-btn" onclick="setBeDual(true)" style="flex:1;padding:8px;font-size:11px">Two values</button>
+      </div>
+    </div>
+    <div id="be-dual-config" style="display:none">
+      <div class="input-row">
+        <label>Label for value 1</label>
+        <input type="text" id="be-label1" placeholder="e.g. Left arm">
+      </div>
+      <div class="input-row">
+        <label>Label for value 2</label>
+        <input type="text" id="be-label2" placeholder="e.g. Right arm">
+      </div>
+    </div>
+    <button class="btn-primary" onclick="saveBenchEdit()">SAVE BENCHMARK</button>
+    <div style="height:8px"></div>
+    <button class="btn-danger-sm" id="be-delete-btn" onclick="deleteBenchmark()" style="display:none;width:100%;padding:12px;text-align:center">DELETE BENCHMARK</button>
+  </div>
+</div>
+
 <!-- MODAL: Log a benchmark -->
 <div class="modal-overlay" id="bench-modal">
   <div class="modal">
@@ -417,7 +597,7 @@
 </div>
 
 <script>
-// ── BENCHMARKS ────────────────────────────────────────────────────────────
+// ── CONSTANTS ─────────────────────────────────────────────────────────────
 const BENCHMARKS = [
   { id: 'hang20mm',   icon: '⏱', name: '20mm max hang',        unit: 'seconds',   target: '30s → 45s' },
   { id: 'minEdge',    icon: '📏', name: 'Min edge (10s hang)',   unit: 'mm',        target: '20mm → 15mm' },
@@ -470,6 +650,29 @@ const PYRAMID_COLORS = [
   { id: 'black',  label: 'Black',  dot: '#1a1c17' },
   { id: 'blue',   label: 'Blue',   dot: '#3b82f6' },
 ];
+const CIRCUIT_COLORS = [
+  { id: 'yellow', label: 'Yellow', dot: '#fbbf24' },
+  { id: 'red',    label: 'Red',    dot: '#ef4444' },
+  { id: 'green',  label: 'Green',  dot: '#22c55e' },
+  { id: 'purple', label: 'Purple', dot: '#a855f7' },
+  { id: 'orange', label: 'Orange', dot: '#f97316' },
+  { id: 'black',  label: 'Black',  dot: '#1a1c17' },
+  { id: 'blue',   label: 'Blue',   dot: '#3b82f6' },
+  { id: 'pink',   label: 'Pink',   dot: '#ec4899' },
+  { id: 'white',  label: 'White',  dot: '#f5f5f5' },
+  { id: 'mint',   label: 'Mint',   dot: '#6ee7b7' },
+];
+const EX_TYPE_LABELS = {
+  weight: 'Weight (lbs)', time: 'Time (sec)', grade: 'V-Grade',
+  attempts: 'Attempts', sends: 'Sends', 'campus-lr': 'Campus Ladder',
+  circuit: 'Circuit', pyramid: 'Pyramid', 'attempted-flashed': 'Att./Flashed',
+};
+const RUNG_COLORS = [
+  { L: '#4ab4f0', R: '#1a7aaa' }, { L: '#f0b44a', R: '#b07010' },
+  { L: '#a855f7', R: '#7c3aed' }, { L: '#22c55e', R: '#15803d' },
+  { L: '#ec4899', R: '#be185d' }, { L: '#ef4444', R: '#b91c1c' },
+  { L: '#fbbf24', R: '#d97706' },
+];
 
 // ── STORAGE ───────────────────────────────────────────────────────────────
 function load(key, fallback) {
@@ -477,10 +680,78 @@ function load(key, fallback) {
 }
 function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
-let sessions   = load('sessions', []);
-let benchLogs  = load('benchLogs', {});
-let currentDay = 'A';
+let sessions        = load('sessions', []);
+let benchLogs       = load('benchLogs', {});
+let customExercises          = load('customExercises', []);
+let customWorkouts           = load('customWorkouts', []);
+let deletedBuiltins          = load('deletedBuiltins', []);
+let customBenchmarks         = load('customBenchmarks', []);
+let deletedBuiltinBenchmarks = load('deletedBuiltinBenchmarks', []);
+let currentWorkoutId = 'A';
 let modalBench = null;
+
+// Workout builder state
+let wbExerciseIds = [];
+let wbWorkoutId   = null;
+
+// Create/edit benchmark state
+let beEditId = null;
+let beDual   = false;
+
+// Create/edit exercise state
+let ceEditId         = null;
+let ceCircuitGrades  = [];
+let ceCircuitTracking = 'sends';
+let ceCampusRungs    = 3;
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+function getAllExercises() {
+  const builtin = ['A','B','C'].flatMap(day =>
+    EXERCISES[day].exercises.map(ex => ({ ...ex, _builtin: true, _day: day }))
+  );
+  return [...builtin, ...customExercises];
+}
+
+function findExercise(id) {
+  return getAllExercises().find(ex => ex.id === id);
+}
+
+function getWorkoutDef(id) {
+  const custom = customWorkouts.find(w => w.id === id);
+  if (custom) return custom;
+  if (id === 'A' || id === 'B' || id === 'C') {
+    return { id, name: EXERCISES[id].title, exercises: EXERCISES[id].exercises.map(e => e.id), _builtin: true };
+  }
+  return null;
+}
+
+function availableWorkoutIds() {
+  const builtins = ['A','B','C'].filter(id => !deletedBuiltins.includes(id));
+  const customs  = customWorkouts.filter(w => !['A','B','C'].includes(w.id)).map(w => w.id);
+  return [...builtins, ...customs];
+}
+
+function getAllBenchmarks() {
+  const activeBuiltins = BENCHMARKS
+    .filter(b => !deletedBuiltinBenchmarks.includes(b.id))
+    .map(b => customBenchmarks.find(c => c.id === b.id) || { ...b, _builtin: true });
+  const customOnly = customBenchmarks.filter(c => !BENCHMARKS.find(b => b.id === c.id));
+  return [...activeBuiltins, ...customOnly];
+}
+
+function getBenchmark(id) {
+  return customBenchmarks.find(b => b.id === id) || BENCHMARKS.find(b => b.id === id) || null;
+}
+
+function colorDot(colorId) {
+  return (CIRCUIT_COLORS.find(c => c.id === colorId) || {}).dot || '#aaa';
+}
+
+function colorLabel(colorId) {
+  return (CIRCUIT_COLORS.find(c => c.id === colorId) || {}).label || colorId;
+}
 
 // ── PAGES ─────────────────────────────────────────────────────────────────
 function showPage(id, btn) {
@@ -492,34 +763,415 @@ function showPage(id, btn) {
   if (id === 'progress') renderProgress();
 }
 
+// ── WORKOUT DROPDOWN ─────────────────────────────────────────────────────
+function populateWorkoutDropdown() {
+  const ids = availableWorkoutIds();
+  if (!ids.includes(currentWorkoutId)) currentWorkoutId = ids[0] || null;
+  const sel = document.getElementById('workout-select');
+  sel.innerHTML = ids.map(id => {
+    const w = getWorkoutDef(id);
+    return `<option value="${id}"${id === currentWorkoutId ? ' selected' : ''}>${w ? w.name : id}</option>`;
+  }).join('');
+  document.getElementById('edit-workout-btn').style.display   = currentWorkoutId ? '' : 'none';
+  document.getElementById('delete-workout-btn').style.display = currentWorkoutId ? '' : 'none';
+}
+
+function selectWorkout(id) {
+  currentWorkoutId = id;
+  populateWorkoutDropdown();
+  renderExercises();
+}
+
+// ── WORKOUT BUILDER ───────────────────────────────────────────────────────
+function openCreateWorkout() {
+  wbWorkoutId   = null;
+  wbExerciseIds = [];
+  document.getElementById('wb-modal-title').textContent = 'Create Workout';
+  document.getElementById('wb-name').value = '';
+  renderWbExercises();
+  document.getElementById('workout-builder-modal').classList.add('open');
+}
+
+function openEditWorkout() {
+  const w = getWorkoutDef(currentWorkoutId);
+  if (!w) return;
+  wbWorkoutId   = w.id;
+  wbExerciseIds = [...w.exercises];
+  document.getElementById('wb-modal-title').textContent = 'Edit Workout';
+  document.getElementById('wb-name').value = w.name;
+  renderWbExercises();
+  document.getElementById('workout-builder-modal').classList.add('open');
+}
+
+function closeWorkoutBuilder() {
+  document.getElementById('workout-builder-modal').classList.remove('open');
+}
+
+function saveWorkout() {
+  const name = document.getElementById('wb-name').value.trim();
+  if (!name)                 return alert('Enter a workout name.');
+  if (!wbExerciseIds.length) return alert('Add at least one exercise.');
+  if (wbWorkoutId) {
+    const idx = customWorkouts.findIndex(w => w.id === wbWorkoutId);
+    if (idx >= 0) {
+      customWorkouts[idx].name = name;
+      customWorkouts[idx].exercises = [...wbExerciseIds];
+    } else {
+      // First edit of a built-in — store override with same ID
+      customWorkouts.push({ id: wbWorkoutId, name, exercises: [...wbExerciseIds] });
+    }
+  } else {
+    const w = { id: uid(), name, exercises: [...wbExerciseIds] };
+    customWorkouts.push(w);
+    currentWorkoutId = w.id;
+  }
+  save('customWorkouts', customWorkouts);
+  closeWorkoutBuilder();
+  populateWorkoutDropdown();
+  renderExercises();
+}
+
+function deleteCurrentWorkout() {
+  if (!confirm('Delete this workout?')) return;
+  if (['A','B','C'].includes(currentWorkoutId)) {
+    if (!deletedBuiltins.includes(currentWorkoutId)) deletedBuiltins.push(currentWorkoutId);
+    save('deletedBuiltins', deletedBuiltins);
+  }
+  customWorkouts = customWorkouts.filter(w => w.id !== currentWorkoutId);
+  save('customWorkouts', customWorkouts);
+  currentWorkoutId = availableWorkoutIds()[0] || null;
+  populateWorkoutDropdown();
+  renderExercises();
+}
+
+function renderWbExercises() {
+  const el = document.getElementById('wb-exercise-list');
+  if (!wbExerciseIds.length) {
+    el.innerHTML = '<div style="padding:16px 0;color:var(--muted);font-size:13px;text-align:center">No exercises yet. Add some below.</div>';
+    return;
+  }
+  el.innerHTML = wbExerciseIds.map((id, idx) => {
+    const ex = findExercise(id);
+    if (!ex) return '';
+    return `<div class="workout-ex-chip">
+      <div>
+        <div class="chip-name">${ex.name}</div>
+        <div class="chip-type">${EX_TYPE_LABELS[ex.type] || ex.type}</div>
+      </div>
+      <div class="chip-actions">
+        ${!ex._builtin ? `<button class="btn-edit-sm" onclick="openEditExercise('${ex.id}')">Edit</button>` : ''}
+        <button class="chip-remove" onclick="removeWbExercise(${idx})">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function removeWbExercise(idx) {
+  wbExerciseIds.splice(idx, 1);
+  renderWbExercises();
+}
+
+// ── EXERCISE PICKER ───────────────────────────────────────────────────────
+function openExercisePicker() {
+  renderExercisePicker();
+  document.getElementById('exercise-picker-modal').classList.add('open');
+}
+
+function closeExercisePicker() {
+  document.getElementById('exercise-picker-modal').classList.remove('open');
+}
+
+function renderExercisePicker() {
+  const all  = getAllExercises();
+  const html = all.map(ex => `
+    <div class="ep-item">
+      <div>
+        <div class="ep-item-name">${ex.name}</div>
+        <div class="ep-item-type">${EX_TYPE_LABELS[ex.type] || ex.type}${ex._builtin ? ' · Built-in' : ''}</div>
+      </div>
+      <div class="ep-actions">
+        ${!ex._builtin ? `<button class="btn-edit-sm" onclick="openEditExercise('${ex.id}')">Edit</button>` : ''}
+        <button class="btn-add-sm" onclick="pickExercise('${ex.id}')">Add</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('ep-exercise-list').innerHTML = html ||
+    '<div style="padding:16px 0;color:var(--muted);font-size:13px">No exercises yet.</div>';
+}
+
+function pickExercise(id) {
+  if (!wbExerciseIds.includes(id)) wbExerciseIds.push(id);
+  closeExercisePicker();
+  renderWbExercises();
+}
+
+// ── CREATE / EDIT EXERCISE ────────────────────────────────────────────────
+function openCreateExercise() {
+  closeExercisePicker();
+  ceEditId = null;
+  ceCircuitGrades   = [{ inputType: 'v-grade', value: 'V5' }];
+  ceCircuitTracking = 'sends';
+  ceCampusRungs     = 3;
+  document.getElementById('ce-modal-title').textContent = 'New Exercise';
+  document.getElementById('ce-name').value = '';
+  document.getElementById('ce-type').value = 'weight';
+  document.getElementById('ce-delete-btn').style.display = 'none';
+  document.getElementById('ce-type-config').innerHTML = '';
+  document.getElementById('create-exercise-modal').classList.add('open');
+}
+
+function openEditExercise(id) {
+  const ex = customExercises.find(e => e.id === id);
+  if (!ex) return;
+  ceEditId = id;
+  ceCircuitGrades   = ex.circuitGrades ? ex.circuitGrades.map(g => ({ ...g })) : [{ inputType: 'v-grade', value: 'V5' }];
+  ceCircuitTracking = ex.circuitTracking || 'sends';
+  ceCampusRungs     = ex.campusRungs || 3;
+  document.getElementById('ce-modal-title').textContent = 'Edit Exercise';
+  document.getElementById('ce-name').value = ex.name;
+  document.getElementById('ce-type').value = ex.type;
+  document.getElementById('ce-delete-btn').style.display = '';
+  renderExTypeConfig();
+  document.getElementById('create-exercise-modal').classList.add('open');
+}
+
+function closeCreateExercise() {
+  document.getElementById('create-exercise-modal').classList.remove('open');
+}
+
+function renderExTypeConfig() {
+  const type = document.getElementById('ce-type').value;
+  const cont = document.getElementById('ce-type-config');
+  if (type === 'campus-lr') {
+    cont.innerHTML = `<div class="input-row" style="margin-top:12px">
+      <label>Number of rungs in sequence</label>
+      <select id="ce-campus-rungs" class="ex-select" style="width:100%" onchange="ceCampusRungs=parseInt(this.value)">
+        ${[2,3,4,5,6,7].map(n => {
+          const seq = Array.from({length: n}, (_, i) => 1 + i * 2).join('-');
+          return `<option value="${n}"${n === ceCampusRungs ? ' selected' : ''}>${n} rungs (${seq})</option>`;
+        }).join('')}
+      </select>
+      <div class="card-sub" style="margin-top:6px">Rung 1 is always the start. L &amp; R inputs for rungs 2+.</div>
+    </div>`;
+  } else if (type === 'circuit') {
+    renderCircuitConfig();
+  } else {
+    cont.innerHTML = '';
+  }
+}
+
+function renderCircuitConfig() {
+  const cont = document.getElementById('ce-type-config');
+  let html = `<div style="margin-top:12px">
+    <div class="input-row">
+      <label>Tracking</label>
+      <div style="display:flex;gap:8px">
+        <button class="type-btn${ceCircuitTracking === 'sends' ? ' active' : ''}"
+          style="padding:8px;font-size:11px;flex:1" onclick="ceCircuitTracking='sends';renderCircuitConfig()">Sends only</button>
+        <button class="type-btn${ceCircuitTracking === 'attempts+sends' ? ' active' : ''}"
+          style="padding:8px;font-size:11px;flex:1" onclick="ceCircuitTracking='attempts+sends';renderCircuitConfig()">Attempts + Sends</button>
+      </div>
+    </div>
+    <div class="card-label" style="margin-bottom:8px">Grades / Colors</div>`;
+
+  ceCircuitGrades.forEach((grade, idx) => {
+    html += `<div style="margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">Grade ${idx + 1}</span>
+        <button class="chip-remove" onclick="removeCeGrade(${idx})">✕</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button class="circuit-type-btn${grade.inputType === 'v-grade' ? ' active' : ''}" onclick="setCeGradeType(${idx},'v-grade')">V-Grade</button>
+        <button class="circuit-type-btn${grade.inputType === 'color' ? ' active' : ''}" onclick="setCeGradeType(${idx},'color')">Color</button>
+      </div>`;
+    if (grade.inputType === 'v-grade') {
+      html += `<select class="ex-select" style="width:100%" onchange="ceCircuitGrades[${idx}].value=this.value">
+        ${V_GRADES.map(g => `<option${g === grade.value ? ' selected' : ''}>${g}</option>`).join('')}
+      </select>`;
+    } else {
+      html += `<div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${CIRCUIT_COLORS.map(c => `<div class="color-swatch${grade.value === c.id ? ' selected' : ''}"
+          style="background:${c.dot}${c.id === 'white' ? ';border:1.5px solid #ccc' : ''}"
+          title="${c.label}" onclick="setCeGradeValue(${idx},'${c.id}')"></div>`).join('')}
+      </div>`;
+    }
+    html += `</div>`;
+  });
+
+  html += `<button class="btn-secondary" style="margin-top:4px" onclick="addCeGrade()">+ Add Grade</button></div>`;
+  cont.innerHTML = html;
+}
+
+function addCeGrade()           { ceCircuitGrades.push({ inputType: 'v-grade', value: 'V5' }); renderCircuitConfig(); }
+function removeCeGrade(idx)     { ceCircuitGrades.splice(idx, 1); renderCircuitConfig(); }
+function setCeGradeType(idx, t) { ceCircuitGrades[idx].inputType = t; ceCircuitGrades[idx].value = t === 'v-grade' ? 'V5' : 'yellow'; renderCircuitConfig(); }
+function setCeGradeValue(idx, v){ ceCircuitGrades[idx].value = v; renderCircuitConfig(); }
+
+function saveNewExercise() {
+  const name = document.getElementById('ce-name').value.trim();
+  if (!name) return alert('Enter an exercise name.');
+  const type = document.getElementById('ce-type').value;
+  if (type === 'circuit' && !ceCircuitGrades.length) return alert('Add at least one grade.');
+
+  const ex = { id: ceEditId || uid(), name, tab: name, type };
+  if (type === 'campus-lr') {
+    ex.campusRungs = parseInt(document.getElementById('ce-campus-rungs')?.value) || ceCampusRungs;
+  } else if (type === 'circuit') {
+    ex.circuitGrades   = ceCircuitGrades.map(g => ({ ...g }));
+    ex.circuitTracking = ceCircuitTracking;
+  }
+
+  if (ceEditId) {
+    const idx = customExercises.findIndex(e => e.id === ceEditId);
+    if (idx >= 0) customExercises[idx] = ex;
+  } else {
+    customExercises.push(ex);
+    wbExerciseIds.push(ex.id);
+  }
+  save('customExercises', customExercises);
+  closeCreateExercise();
+  renderWbExercises();
+  renderExercisePicker();
+  renderExercises();
+}
+
+function deleteExercise() {
+  if (!ceEditId) return;
+  if (!confirm('Delete this exercise? It will be removed from all workouts.')) return;
+  customWorkouts.forEach(w => { w.exercises = w.exercises.filter(id => id !== ceEditId); });
+  save('customWorkouts', customWorkouts);
+  customExercises = customExercises.filter(e => e.id !== ceEditId);
+  save('customExercises', customExercises);
+  wbExerciseIds = wbExerciseIds.filter(id => id !== ceEditId);
+  closeCreateExercise();
+  renderWbExercises();
+  renderExercisePicker();
+  renderExercises();
+}
+
 // ── BENCHMARKS ───────────────────────────────────────────────────────────
 function renderBenchmarks() {
-  document.getElementById('bench-list').innerHTML = BENCHMARKS.map(b => {
+  const benchmarks = getAllBenchmarks();
+  if (!benchmarks.length) {
+    document.getElementById('bench-list').innerHTML =
+      '<div style="padding:24px 0;text-align:center;color:var(--muted);font-size:13px">No benchmarks. Create one above.</div>';
+    return;
+  }
+  document.getElementById('bench-list').innerHTML = benchmarks.map(b => {
     const entries = benchLogs[b.id] || [];
     const latest  = entries[entries.length - 1];
     let valText;
     if (!latest) {
       valText = 'No entries yet';
     } else if (b.dual && latest.value2 != null) {
-      valText = `1→${latest.value}→${latest.value2} — ${latest.date}`;
+      valText = b.id === 'campus'
+        ? `1→${latest.value}→${latest.value2} — ${latest.date}`
+        : `${latest.value} / ${latest.value2} ${b.unit} — ${latest.date}`;
     } else {
       valText = `${latest.value} ${b.unit} — ${latest.date}`;
     }
     return `
       <div class="bench-row">
-        <div class="bench-icon">${b.icon}</div>
         <div class="bench-info">
           <div class="bench-name">${b.name}</div>
           <div class="bench-val ${latest ? '' : 'empty'}">${valText}</div>
-          <div class="card-sub" style="font-size:11px;margin-top:2px;">${b.target}</div>
+          ${b.target ? `<div class="card-sub" style="font-size:11px;margin-top:2px;">Target: ${b.target}</div>` : ''}
         </div>
-        <button class="btn-log" onclick="openModal('${b.id}')">Log</button>
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+          <button class="btn-edit-sm" onclick="openEditBenchmark('${b.id}')">Edit</button>
+          <button class="btn-log" onclick="openModal('${b.id}')">Log</button>
+        </div>
       </div>`;
   }).join('');
 }
 
+function openCreateBenchmark() {
+  beEditId = null;
+  beDual   = false;
+  document.getElementById('be-modal-title').textContent = 'New Benchmark';
+  document.getElementById('be-name').value   = '';
+
+  document.getElementById('be-unit').value   = '';
+  document.getElementById('be-target').value = '';
+  document.getElementById('be-label1').value = '';
+  document.getElementById('be-label2').value = '';
+  document.getElementById('be-delete-btn').style.display = 'none';
+  setBeDual(false);
+  document.getElementById('bench-edit-modal').classList.add('open');
+}
+
+function openEditBenchmark(id) {
+  const b = getBenchmark(id);
+  if (!b) return;
+  beEditId = id;
+  beDual   = !!b.dual;
+  document.getElementById('be-modal-title').textContent = 'Edit Benchmark';
+  document.getElementById('be-name').value   = b.name;
+  document.getElementById('be-unit').value   = b.unit || '';
+  document.getElementById('be-target').value = b.target || '';
+  document.getElementById('be-label1').value = b.dualLabels?.[0] || '';
+  document.getElementById('be-label2').value = b.dualLabels?.[1] || '';
+  document.getElementById('be-delete-btn').style.display = '';
+  setBeDual(beDual);
+  document.getElementById('bench-edit-modal').classList.add('open');
+}
+
+function closeBenchEdit() {
+  document.getElementById('bench-edit-modal').classList.remove('open');
+}
+
+function setBeDual(val) {
+  beDual = val;
+  document.getElementById('be-single-btn').classList.toggle('active',  !val);
+  document.getElementById('be-dual-btn').classList.toggle('active',    val);
+  document.getElementById('be-dual-config').style.display = val ? '' : 'none';
+}
+
+function saveBenchEdit() {
+  const name = document.getElementById('be-name').value.trim();
+  if (!name) return alert('Enter a benchmark name.');
+  const bench = {
+    id:     beEditId || uid(),
+    name,
+    unit:   document.getElementById('be-unit').value.trim()   || 'value',
+    target: document.getElementById('be-target').value.trim() || '',
+  };
+  if (beDual) {
+    bench.dual       = true;
+    bench.dualLabels = [
+      document.getElementById('be-label1').value.trim() || 'Value 1',
+      document.getElementById('be-label2').value.trim() || 'Value 2',
+    ];
+  }
+  if (beEditId) {
+    const idx = customBenchmarks.findIndex(b => b.id === beEditId);
+    if (idx >= 0) customBenchmarks[idx] = bench;
+    else customBenchmarks.push(bench);
+  } else {
+    customBenchmarks.push(bench);
+  }
+  save('customBenchmarks', customBenchmarks);
+  closeBenchEdit();
+  renderBenchmarks();
+  renderBenchChart();
+}
+
+function deleteBenchmark() {
+  if (!beEditId) return;
+  if (!confirm('Delete this benchmark? Logged entries are kept but the benchmark will be removed.')) return;
+  if (BENCHMARKS.find(b => b.id === beEditId)) {
+    if (!deletedBuiltinBenchmarks.includes(beEditId)) deletedBuiltinBenchmarks.push(beEditId);
+    save('deletedBuiltinBenchmarks', deletedBuiltinBenchmarks);
+  }
+  customBenchmarks = customBenchmarks.filter(b => b.id !== beEditId);
+  save('customBenchmarks', customBenchmarks);
+  if (currentBenchTab === beEditId) currentBenchTab = getAllBenchmarks()[0]?.id || null;
+  closeBenchEdit();
+  renderBenchmarks();
+  renderBenchChart();
+}
+
 function openModal(benchId) {
-  modalBench = BENCHMARKS.find(b => b.id === benchId);
+  modalBench = getBenchmark(benchId);
   document.getElementById('modal-title').textContent = 'Log: ' + modalBench.name;
   document.getElementById('modal-date').value = today();
   document.getElementById('modal-value').value = '';
@@ -563,99 +1215,160 @@ function saveBenchmark() {
 
 // ── EXERCISE RENDERING ────────────────────────────────────────────────────
 function renderExercises() {
-  const plan = EXERCISES[currentDay];
+  const workout   = getWorkoutDef(currentWorkoutId);
   const container = document.getElementById('exercise-inputs');
-  if (!plan) { container.innerHTML = ''; return; }
+  if (!workout) { container.innerHTML = ''; return; }
 
-  let html = `<div class="exercise-section-title">${plan.title}</div>`;
+  const exIds = workout._builtin
+    ? EXERCISES[currentWorkoutId].exercises.map(e => e.id)
+    : (workout.exercises || []);
 
-  plan.exercises.forEach(ex => {
-    html += `<div class="exercise-block">`;
-    html += `<div class="exercise-name">${ex.name}</div>`;
+  let html = `<div class="exercise-section-title">${workout.name}</div>`;
+  exIds.forEach(id => {
+    const ex = findExercise(id);
+    if (ex) html += renderExerciseBlock(ex);
+  });
+  container.innerHTML = html;
+}
 
-    if (ex.type === 'grade') {
-      html += `<div class="ex-single">
-        <label>Max grade sent</label>
+function renderExerciseBlock(ex) {
+  const editBtn = !ex._builtin
+    ? `<button class="btn-edit-sm" onclick="openEditExercise('${ex.id}')" style="font-size:10px;padding:4px 8px">Edit</button>`
+    : '';
+  let html = `<div class="exercise-block">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+      <div class="exercise-name" style="margin-bottom:0">${ex.name}</div>
+      ${editBtn}
+    </div>`;
+
+  switch (ex.type) {
+    case 'grade':
+      html += `<div class="ex-single"><label>Max grade sent</label>
         <select id="ex_${ex.id}_grade" class="ex-select">
           <option value="">— select —</option>
           ${V_GRADES.map(g => `<option>${g}</option>`).join('')}
-        </select>
-      </div>`;
+        </select></div>`;
+      break;
 
-    } else if (ex.type === 'weight') {
-      html += `<div class="ex-single">
-        <label>Weight (lbs)</label>
-        <input type="number" id="ex_${ex.id}_weight" inputmode="decimal" placeholder="0" class="ex-num-input">
-      </div>`;
+    case 'weight':
+      html += `<div class="ex-single"><label>Weight (lbs)</label>
+        <input type="number" id="ex_${ex.id}_weight" inputmode="decimal" placeholder="0" class="ex-num-input"></div>`;
+      break;
 
-    } else if (ex.type === 'campus-lr') {
-      html += `<div class="campus-grid">
-        <div class="campus-grid-header">
-          <span></span><span>Set L</span><span>Set R</span>
-        </div>`;
-      ['2','3'].forEach(step => {
+    case 'time':
+      html += `<div class="ex-single"><label>Time (seconds)</label>
+        <input type="number" id="ex_${ex.id}_time" inputmode="decimal" placeholder="0" class="ex-num-input"></div>`;
+      break;
+
+    case 'attempts':
+      html += `<div class="ex-single"><label>Attempts</label>
+        <input type="number" id="ex_${ex.id}_attempts" inputmode="numeric" placeholder="0" class="ex-num-input"></div>`;
+      break;
+
+    case 'sends':
+      html += `<div class="ex-single"><label>Sends</label>
+        <input type="number" id="ex_${ex.id}_sends" inputmode="numeric" placeholder="0" class="ex-num-input"></div>`;
+      break;
+
+    case 'campus-lr': {
+      const rungs = ex.campusRungs || 3;
+      const steps = Array.from({ length: rungs - 1 }, (_, i) => String(i + 2));
+      html += `<div class="campus-grid"><div class="campus-grid-header"><span></span><span>Left</span><span>Right</span></div>`;
+      steps.forEach(step => {
         html += `<div class="campus-row">
-          <span class="campus-row-label">Step ${step}</span>
+          <span class="campus-row-label">Rung ${step}</span>
           <input type="number" id="ex_${ex.id}_l${step}_L" inputmode="numeric" placeholder="—" class="ex-num-input campus-num">
           <input type="number" id="ex_${ex.id}_l${step}_R" inputmode="numeric" placeholder="—" class="ex-num-input campus-num">
         </div>`;
       });
       html += `</div>`;
+      break;
+    }
 
-    } else if (ex.type === 'pyramid') {
+    case 'pyramid':
       html += `<div class="pyramid-grid">`;
       PYRAMID_COLORS.forEach(c => {
-        html += `
-          <div class="pyramid-color">
-            <div class="color-dot" style="background:${c.dot}"></div>
-            ${c.label}
-          </div>
+        html += `<div class="pyramid-color"><div class="color-dot" style="background:${c.dot}"></div>${c.label}</div>
           <input type="number" id="ex_${ex.id}_${c.id}" inputmode="numeric" placeholder="0" class="ex-num-input">`;
       });
       html += `</div>`;
+      break;
 
-    } else if (ex.type === 'attempted-flashed') {
+    case 'attempted-flashed':
       html += `<div class="ex-input-pair">
         <div><label>Attempted</label><input type="number" id="ex_${ex.id}_attempted" inputmode="numeric" placeholder="0" class="ex-num-input"></div>
         <div><label>Flashed</label><input type="number" id="ex_${ex.id}_flashed" inputmode="numeric" placeholder="0" class="ex-num-input"></div>
       </div>`;
+      break;
+
+    case 'circuit': {
+      const grades   = ex.circuitGrades || [];
+      const isBoth   = ex.circuitTracking === 'attempts+sends';
+      html += `<div class="circuit-log-grid${isBoth ? ' both-tracking' : ''}">
+        <div></div>${isBoth ? '<div class="clg-hdr">ATT</div>' : ''}<div class="clg-hdr">SENDS</div>`;
+      grades.forEach((g, idx) => {
+        const dot = `<div style="width:10px;height:10px;border-radius:50%;background:${colorDot(g.value)}${g.value === 'white' ? ';border:1px solid #ccc' : ''}"></div>`;
+        const lbl = g.inputType === 'v-grade'
+          ? `<span class="clg-label">${g.value}</span>`
+          : `<span class="clg-label">${dot}${colorLabel(g.value)}</span>`;
+        html += lbl;
+        if (isBoth) html += `<input type="number" id="ex_${ex.id}_${idx}_att" inputmode="numeric" placeholder="0" class="ex-num-input" style="text-align:center">`;
+        html += `<input type="number" id="ex_${ex.id}_${idx}_sends" inputmode="numeric" placeholder="0" class="ex-num-input" style="text-align:center">`;
+      });
+      html += `</div>`;
+      break;
     }
+  }
 
-    html += `</div>`;
-  });
-
-  container.innerHTML = html;
+  html += `</div>`;
+  return html;
 }
 
 function collectExerciseData() {
-  const plan = EXERCISES[currentDay];
-  if (!plan) return {};
+  const workout = getWorkoutDef(currentWorkoutId);
+  if (!workout) return {};
+  const exIds = workout._builtin
+    ? EXERCISES[currentWorkoutId].exercises.map(e => e.id)
+    : (workout.exercises || []);
+
   const data = {};
-  plan.exercises.forEach(ex => {
-    if (ex.type === 'grade') {
-      data[ex.id] = { grade: document.getElementById(`ex_${ex.id}_grade`)?.value || '' };
-    } else if (ex.type === 'weight') {
-      data[ex.id] = { weight: document.getElementById(`ex_${ex.id}_weight`)?.value || '' };
-    } else if (ex.type === 'campus-lr') {
-      const d = {};
-      ['2','3'].forEach(step => {
-        d[step] = {
-          L: document.getElementById(`ex_${ex.id}_l${step}_L`)?.value || '',
-          R: document.getElementById(`ex_${ex.id}_l${step}_R`)?.value || '',
-        };
-      });
-      data[ex.id] = d;
-    } else if (ex.type === 'pyramid') {
-      const d = {};
-      PYRAMID_COLORS.forEach(c => {
-        d[c.id] = document.getElementById(`ex_${ex.id}_${c.id}`)?.value || '';
-      });
-      data[ex.id] = d;
-    } else if (ex.type === 'attempted-flashed') {
-      data[ex.id] = {
-        attempted: document.getElementById(`ex_${ex.id}_attempted`)?.value || '',
-        flashed:   document.getElementById(`ex_${ex.id}_flashed`)?.value || '',
-      };
+  exIds.forEach(exId => {
+    const ex = findExercise(exId);
+    if (!ex) return;
+    const g = s => document.getElementById(s)?.value || '';
+    switch (ex.type) {
+      case 'grade':   data[exId] = { grade:    g(`ex_${exId}_grade`) };    break;
+      case 'weight':  data[exId] = { weight:   g(`ex_${exId}_weight`) };   break;
+      case 'time':    data[exId] = { time:     g(`ex_${exId}_time`) };     break;
+      case 'attempts':data[exId] = { attempts: g(`ex_${exId}_attempts`) }; break;
+      case 'sends':   data[exId] = { sends:    g(`ex_${exId}_sends`) };    break;
+      case 'campus-lr': {
+        const rungs = ex.campusRungs || 3;
+        const steps = Array.from({ length: rungs - 1 }, (_, i) => String(i + 2));
+        const d = {};
+        steps.forEach(step => { d[step] = { L: g(`ex_${exId}_l${step}_L`), R: g(`ex_${exId}_l${step}_R`) }; });
+        data[exId] = d;
+        break;
+      }
+      case 'pyramid': {
+        const d = {};
+        PYRAMID_COLORS.forEach(c => { d[c.id] = g(`ex_${exId}_${c.id}`); });
+        data[exId] = d;
+        break;
+      }
+      case 'attempted-flashed':
+        data[exId] = { attempted: g(`ex_${exId}_attempted`), flashed: g(`ex_${exId}_flashed`) };
+        break;
+      case 'circuit': {
+        const grades = (ex.circuitGrades || []).map((gr, idx) => {
+          const entry = { grade: gr.value };
+          if (ex.circuitTracking === 'attempts+sends') entry.attempts = g(`ex_${exId}_${idx}_att`);
+          entry.sends = g(`ex_${exId}_${idx}_sends`);
+          return entry;
+        });
+        data[exId] = { grades };
+        break;
+      }
     }
   });
   return data;
@@ -664,19 +1377,15 @@ function collectExerciseData() {
 // ── SESSION ───────────────────────────────────────────────────────────────
 document.getElementById('session-date').value = today();
 
-function selectDay(btn) {
-  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  currentDay = btn.dataset.day;
-  renderExercises();
-}
-
 function saveSession() {
+  const workout = getWorkoutDef(currentWorkoutId);
   const s = {
-    date:      document.getElementById('session-date').value,
-    day:       currentDay,
-    exercises: collectExerciseData(),
-    notes:     document.getElementById('session-notes').value,
+    date:        document.getElementById('session-date').value,
+    workoutId:   currentWorkoutId,
+    workoutName: workout ? workout.name : currentWorkoutId,
+    day:         ['A','B','C'].includes(currentWorkoutId) ? currentWorkoutId : null,
+    exercises:   collectExerciseData(),
+    notes:       document.getElementById('session-notes').value,
   };
   sessions.unshift(s);
   save('sessions', sessions);
@@ -688,21 +1397,27 @@ function saveSession() {
 // ── PROGRESS ──────────────────────────────────────────────────────────────
 let currentBenchTab = BENCHMARKS[0].id;
 
+function sessionWorkoutId(s) { return s.workoutId || s.day; }
+
+function sessionsThisWeek() {
+  const now = new Date();
+  const dow = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+  monday.setHours(0, 0, 0, 0);
+  const cutoff = monday.toISOString().split('T')[0];
+  return sessions.filter(s => s.date >= cutoff).length;
+}
+
 function renderProgress() {
   const totalSessions = sessions.length;
-  const allBench = Object.values(benchLogs).flat().length;
-  const aCount = sessions.filter(s => s.day === 'A').length;
-  const bCount = sessions.filter(s => s.day === 'B').length;
-  const cCount = sessions.filter(s => s.day === 'C').length;
+  const allBench  = Object.values(benchLogs).flat().length;
+  const weekCount = sessionsThisWeek();
 
   document.getElementById('stat-grid').innerHTML = `
-    <div class="stat-card"><div class="stat-num">${totalSessions}</div><div class="stat-label">Sessions logged</div></div>
-    <div class="stat-card"><div class="stat-num">${allBench}</div><div class="stat-label">Benchmark entries</div></div>
-  `;
-  document.getElementById('stat-grid-days').innerHTML = `
-    <div class="stat-card"><div class="stat-num">${aCount}</div><div class="stat-label">Strength days</div></div>
-    <div class="stat-card"><div class="stat-num">${bCount}</div><div class="stat-label">Power days</div></div>
-    <div class="stat-card"><div class="stat-num">${cCount}</div><div class="stat-label">Volume days</div></div>
+    <div class="stat-card"><div class="stat-num">${totalSessions}</div><div class="stat-label">Total sessions</div></div>
+    <div class="stat-card"><div class="stat-num">${weekCount}</div><div class="stat-label">This week</div></div>
+    <div class="stat-card"><div class="stat-num">${allBench}</div><div class="stat-label">Benchmarks</div></div>
   `;
 
   renderBenchChart();
@@ -713,16 +1428,20 @@ function renderProgress() {
     list.innerHTML = '<div class="empty-state"><div class="big">NO DATA</div>Log your first session to see history here.</div>';
     return;
   }
-  const dayLabel = { A: 'Strength', B: 'Power Endurance', C: 'Volume' };
-  list.innerHTML = sessions.slice(0, 20).map(s => `
-    <div class="log-item">
-      <div class="log-dot day-${s.day.toLowerCase()}"></div>
+  const builtinLabel = { A: 'Strength', B: 'Power Endurance', C: 'Volume' };
+  list.innerHTML = sessions.slice(0, 20).map(s => {
+    const wid   = sessionWorkoutId(s);
+    const label = s.workoutName || builtinLabel[wid] || wid || 'Session';
+    const dotCls = s.day === 'A' ? '' : s.day === 'B' ? ' day-b' : s.day === 'C' ? ' day-c' : ' day-custom';
+    return `<div class="log-item">
+      <div class="log-dot${dotCls}"></div>
       <div>
         <div class="log-date">${s.date}</div>
-        <div class="log-type">Day ${s.day} · ${dayLabel[s.day] || s.day}</div>
+        <div class="log-type">${label}</div>
         ${s.notes ? `<div class="log-note">${s.notes.substring(0,80)}${s.notes.length > 80 ? '…' : ''}</div>` : ''}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── BENCHMARK CHART ───────────────────────────────────────────────────────
@@ -731,12 +1450,20 @@ const BENCH_SHORT = {
   campus: 'Campus', lockoff: 'Lock-off', blackFlash: 'Flash Rate',
 };
 
+function benchTabLabel(b) {
+  return BENCH_SHORT[b.id] || (b.name.length > 12 ? b.name.slice(0, 11) + '…' : b.name);
+}
+
 function renderBenchChart() {
-  document.getElementById('bench-tabs').innerHTML = BENCHMARKS.map(b => `
+  const benchmarks = getAllBenchmarks();
+  if (!benchmarks.find(b => b.id === currentBenchTab)) {
+    currentBenchTab = benchmarks[0]?.id || null;
+  }
+  document.getElementById('bench-tabs').innerHTML = benchmarks.map(b => `
     <button class="bench-tab${b.id === currentBenchTab ? ' active' : ''}"
-      onclick="selectBenchTab('${b.id}')">${BENCH_SHORT[b.id] || b.name}</button>
+      onclick="selectBenchTab('${b.id}')">${benchTabLabel(b)}</button>
   `).join('');
-  drawBenchChart(currentBenchTab);
+  if (currentBenchTab) drawBenchChart(currentBenchTab);
 }
 
 function selectBenchTab(id) {
@@ -745,7 +1472,7 @@ function selectBenchTab(id) {
 }
 
 function drawBenchChart(benchId) {
-  const bench   = BENCHMARKS.find(b => b.id === benchId);
+  const bench   = getBenchmark(benchId);
   const entries = (benchLogs[benchId] || []).slice().sort((a, b) => a.date.localeCompare(b.date));
   const canvas  = document.getElementById('bench-chart');
   const emptyEl = document.getElementById('bench-chart-empty');
@@ -884,26 +1611,32 @@ function drawBenchChart(benchId) {
 }
 
 // ── EXERCISE CHART ────────────────────────────────────────────────────────
-let currentExTab = null; // { day, id }
+let currentExTab = null; // exercise id string
 
 function renderExerciseChart() {
-  if (!currentExTab) currentExTab = { day: 'A', id: EXERCISES.A.exercises[0].id };
+  const allEx = getAllExercises();
+  const withData = allEx.filter(ex => sessions.some(s => s.exercises && s.exercises[ex.id]));
 
   const tabsEl = document.getElementById('ex-tabs');
-  let html = '';
-  ['A','B','C'].forEach(day => {
-    EXERCISES[day].exercises.forEach(ex => {
-      const active = currentExTab.day === day && currentExTab.id === ex.id;
-      html += `<button class="bench-tab${active ? ' active' : ''}"
-        onclick="selectExTab('${day}','${ex.id}')">${day} · ${ex.tab}</button>`;
-    });
-  });
-  tabsEl.innerHTML = html;
-  drawExerciseChart(currentExTab.day, currentExTab.id);
+  if (!withData.length) {
+    tabsEl.innerHTML = '';
+    document.getElementById('ex-chart').style.display = 'none';
+    document.getElementById('ex-chart-empty').style.display = 'block';
+    return;
+  }
+  if (!currentExTab || !withData.find(ex => ex.id === currentExTab)) {
+    currentExTab = withData[0].id;
+  }
+  tabsEl.innerHTML = withData.map(ex => {
+    const label = ex._builtin ? ex.tab || ex.name : ex.name;
+    return `<button class="bench-tab${ex.id === currentExTab ? ' active' : ''}"
+      onclick="selectExTab('${ex.id}')">${label}</button>`;
+  }).join('');
+  drawExerciseChart(currentExTab);
 }
 
-function selectExTab(day, id) {
-  currentExTab = { day, id };
+function selectExTab(id) {
+  currentExTab = id;
   renderExerciseChart();
 }
 
@@ -914,62 +1647,80 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function drawExerciseChart(day, exId) {
-  const ex      = EXERCISES[day].exercises.find(e => e.id === exId);
+function drawExerciseChart(exId) {
+  const ex      = findExercise(exId);
   const canvas  = document.getElementById('ex-chart');
   const emptyEl = document.getElementById('ex-chart-empty');
 
+  if (!ex) { canvas.style.display = 'none'; emptyEl.style.display = 'block'; return; }
+
   const relevantSessions = sessions
-    .filter(s => s.day === day && s.exercises && s.exercises[exId])
+    .filter(s => s.exercises && s.exercises[exId])
     .slice().sort((a, b) => a.date.localeCompare(b.date));
 
   if (!relevantSessions.length) {
-    canvas.style.display = 'none';
-    emptyEl.style.display = 'block';
-    return;
+    canvas.style.display = 'none'; emptyEl.style.display = 'block'; return;
   }
 
-  // Build series
+  const pts = (key, sub) => relevantSessions.map(s => {
+    const d = s.exercises[exId]; const v = parseFloat(sub ? d?.[sub]?.[key] : d?.[key]);
+    return isNaN(v) ? null : { date: s.date, value: v };
+  }).filter(Boolean);
+
   let series = [];
+  const CHART_COLORS = ['#5a9e0f','#4ab4f0','#a855f7','#f97316','#ef4444','#fbbf24','#22c55e','#ec4899','#1a7aaa','#6ee7b7'];
 
-  if (ex.type === 'weight') {
-    series = [{ label: 'Weight (lbs)', color: '#5a9e0f', points:
-      relevantSessions.map(s => { const v = parseFloat(s.exercises[exId].weight); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean)
-    }];
+  switch (ex.type) {
+    case 'weight':   series = [{ label: 'Weight (lbs)', color: '#5a9e0f', points: pts('weight') }]; break;
+    case 'time':     series = [{ label: 'Time (sec)',   color: '#5a9e0f', points: pts('time') }];   break;
+    case 'attempts': series = [{ label: 'Attempts',     color: '#5a9e0f', points: pts('attempts') }]; break;
+    case 'sends':    series = [{ label: 'Sends',        color: '#5a9e0f', points: pts('sends') }];   break;
 
-  } else if (ex.type === 'grade') {
-    series = [{ label: 'Max grade', color: '#5a9e0f', isGrade: true, points:
-      relevantSessions.map(s => { const g = s.exercises[exId].grade; const idx = V_GRADES.indexOf(g); return idx < 0 ? null : { date: s.date, value: idx, vLabel: g }; }).filter(Boolean)
-    }];
+    case 'grade':
+      series = [{ label: 'Max grade', color: '#5a9e0f', isGrade: true, points:
+        relevantSessions.map(s => { const g = s.exercises[exId].grade; const i = V_GRADES.indexOf(g); return i < 0 ? null : { date: s.date, value: i, vLabel: g }; }).filter(Boolean)
+      }];
+      break;
 
-  } else if (ex.type === 'attempted-flashed') {
-    series = [
-      { label: 'Attempted', color: '#5a9e0f', points: relevantSessions.map(s => { const v = parseFloat(s.exercises[exId].attempted); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean) },
-      { label: 'Flashed',   color: '#4ab4f0', points: relevantSessions.map(s => { const v = parseFloat(s.exercises[exId].flashed);   return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean) },
-    ];
+    case 'attempted-flashed':
+      series = [
+        { label: 'Attempted', color: '#5a9e0f', points: pts('attempted') },
+        { label: 'Flashed',   color: '#4ab4f0', points: pts('flashed') },
+      ];
+      break;
 
-  } else if (ex.type === 'pyramid') {
-    const pCols = [
-      { id: 'purple', label: 'Purple', color: '#a855f7' },
-      { id: 'orange', label: 'Orange', color: '#f97316' },
-      { id: 'black',  label: 'Black',  color: '#1a1c17' },
-      { id: 'blue',   label: 'Blue',   color: '#3b82f6' },
-    ];
-    series = pCols.map(pc => ({ label: pc.label, color: pc.color, points:
-      relevantSessions.map(s => { const v = parseFloat(s.exercises[exId][pc.id]); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean)
-    })).filter(s => s.points.length);
+    case 'pyramid':
+      series = PYRAMID_COLORS.map(pc => ({ label: pc.label, color: pc.dot, points: pts(pc.id) }));
+      break;
 
-  } else if (ex.type === 'campus-lr') {
-    const stepDefs = [
-      { step: '2', labelL: 'S2 L', colorL: '#4ab4f0', labelR: 'S2 R', colorR: '#1a7aaa' },
-      { step: '3', labelL: 'S3 L', colorL: '#f0b44a', labelR: 'S3 R', colorR: '#b07010' },
-    ];
-    stepDefs.forEach(sd => {
-      ['L','R'].forEach(hand => {
-        const pts = relevantSessions.map(s => { const v = parseFloat(s.exercises[exId]?.[sd.step]?.[hand]); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean);
-        if (pts.length) series.push({ label: hand === 'L' ? sd.labelL : sd.labelR, color: hand === 'L' ? sd.colorL : sd.colorR, points: pts });
+    case 'campus-lr': {
+      const rungs = ex.campusRungs || 3;
+      const steps = Array.from({ length: rungs - 1 }, (_, i) => String(i + 2));
+      steps.forEach((step, si) => {
+        const cols = RUNG_COLORS[si] || RUNG_COLORS[0];
+        ['L','R'].forEach(hand => {
+          const p = relevantSessions.map(s => { const v = parseFloat(s.exercises[exId]?.[step]?.[hand]); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean);
+          if (p.length) series.push({ label: `R${step} ${hand}`, color: hand === 'L' ? cols.L : cols.R, points: p });
+        });
       });
-    });
+      break;
+    }
+
+    case 'circuit': {
+      const grades   = ex.circuitGrades || [];
+      const isBoth   = ex.circuitTracking === 'attempts+sends';
+      grades.forEach((g, idx) => {
+        const col   = CHART_COLORS[idx % CHART_COLORS.length];
+        const glbl  = g.inputType === 'v-grade' ? g.value : colorLabel(g.value);
+        const sPts  = relevantSessions.map(s => { const v = parseFloat(s.exercises[exId]?.grades?.[idx]?.sends); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean);
+        if (sPts.length) series.push({ label: `${glbl} sends`, color: col, points: sPts });
+        if (isBoth) {
+          const aPts = relevantSessions.map(s => { const v = parseFloat(s.exercises[exId]?.grades?.[idx]?.attempts); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean);
+          if (aPts.length) series.push({ label: `${glbl} att`, color: '#7a8070', points: aPts });
+        }
+      });
+      break;
+    }
   }
 
   series = series.filter(s => s.points.length);
@@ -1098,10 +1849,11 @@ function drawExerciseChart(day, exId) {
 
 // ── CSV EXPORT ────────────────────────────────────────────────────────────
 function exportCSV() {
-  const rows = [['type','date','day','workout','notes']];
+  const rows = [['type','date','workout_id','workout_name','notes']];
   sessions.forEach(s => {
-    const plan = EXERCISES[s.day];
-    rows.push(['session', s.date, s.day, plan ? plan.title : '', (s.notes || '').replace(/,/g,'')]);
+    const wid   = s.workoutId || s.day;
+    const wname = s.workoutName || (getWorkoutDef(wid) || {}).name || wid || '';
+    rows.push(['session', s.date, wid, wname, (s.notes || '').replace(/,/g,'')]);
   });
   BENCHMARKS.forEach(b => {
     (benchLogs[b.id] || []).forEach(e => {
@@ -1119,6 +1871,7 @@ function exportCSV() {
 // ── UTILS ─────────────────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split('T')[0]; }
 
+populateWorkoutDropdown();
 renderBenchmarks();
 renderExercises();
 </script>
