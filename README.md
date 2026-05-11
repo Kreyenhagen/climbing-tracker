@@ -11,4 +11,4 @@ To set up the tracker as an app on your iPhone -
 3) Click "Share"
 4) Click "View More"
 5) Click "Add to Home Screen"
-And that's it!
+and that's it!
