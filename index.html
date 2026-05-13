@@ -535,6 +535,7 @@
       <select id="ce-type" onchange="renderExTypeConfig()" class="ex-select" style="width:100%">
         <option value="weight">Weight (lbs)</option>
         <option value="time">Time (seconds)</option>
+        <option value="length">Length (mm)</option>
         <option value="grade">Grade (V-scale)</option>
         <option value="attempts">Attempts (count)</option>
         <option value="sends">Sends (count)</option>
@@ -1281,6 +1282,11 @@ function renderExerciseBlock(ex) {
         <input type="number" id="ex_${ex.id}_time" inputmode="decimal" placeholder="0" class="ex-num-input"></div>`;
       break;
 
+    case 'length':
+      html += `<div class="ex-single"><label>Length (mm)</label>
+        <input type="number" id="ex_${ex.id}_length" inputmode="decimal" placeholder="0" class="ex-num-input"></div>`;
+      break;
+
     case 'attempts':
       html += `<div class="ex-single"><label>Attempts</label>
         <input type="number" id="ex_${ex.id}_attempts" inputmode="numeric" placeholder="0" class="ex-num-input"></div>`;
@@ -1360,6 +1366,7 @@ function collectExerciseData() {
     switch (ex.type) {
       case 'grade':   data[exId] = { grade:    g(`ex_${exId}_grade`) };    break;
       case 'weight':  data[exId] = { weight:   g(`ex_${exId}_weight`) };   break;
+      case 'length':  data[exId] = { length:   g(`ex_${exId}_length`) };   break;
       case 'time':    data[exId] = { time:     g(`ex_${exId}_time`) };     break;
       case 'attempts':data[exId] = { attempts: g(`ex_${exId}_attempts`) }; break;
       case 'sends':   data[exId] = { sends:    g(`ex_${exId}_sends`) };    break;
@@ -1695,6 +1702,7 @@ function drawExerciseChart(exId) {
   switch (ex.type) {
     case 'weight':   series = [{ label: 'Weight (lbs)', color: '#5a9e0f', points: pts('weight') }]; break;
     case 'time':     series = [{ label: 'Time (sec)',   color: '#5a9e0f', points: pts('time') }];   break;
+    case 'length':     series = [{ label: 'Length (mm)',   color: '#5a9e0f', points: pts('length') }];   break;
     case 'attempts': series = [{ label: 'Attempts',     color: '#5a9e0f', points: pts('attempts') }]; break;
     case 'sends':    series = [{ label: 'Sends',        color: '#5a9e0f', points: pts('sends') }];   break;
 
@@ -1961,5 +1969,6 @@ renderExercises();
 </script>
 </body>
 </html>
+
 
 
