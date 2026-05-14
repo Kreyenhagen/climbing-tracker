@@ -880,8 +880,14 @@ function renderWbExercises() {
   el.innerHTML = wbExerciseIds.map((id, idx) => {
     const ex = findExercise(id);
     if (!ex) return '';
+    const isFirst = idx === 0;
+    const isLast  = idx === wbExerciseIds.length - 1;
     return `<div class="workout-ex-chip">
-      <div>
+      <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0;margin-right:4px">
+        <button class="chip-remove" onclick="moveWbExercise(${idx},-1)" ${isFirst ? 'disabled style="opacity:0.2"' : ''}>↑</button>
+        <button class="chip-remove" onclick="moveWbExercise(${idx}, 1)" ${isLast  ? 'disabled style="opacity:0.2"' : ''}>↓</button>
+      </div>
+      <div style="flex:1;min-width:0">
         <div class="chip-name">${ex.name}</div>
         <div class="chip-type">${EX_TYPE_LABELS[ex.type] || ex.type}</div>
       </div>
@@ -895,6 +901,13 @@ function renderWbExercises() {
 
 function removeWbExercise(idx) {
   wbExerciseIds.splice(idx, 1);
+  renderWbExercises();
+}
+
+function moveWbExercise(idx, dir) {
+  const target = idx + dir;
+  if (target < 0 || target >= wbExerciseIds.length) return;
+  [wbExerciseIds[idx], wbExerciseIds[target]] = [wbExerciseIds[target], wbExerciseIds[idx]];
   renderWbExercises();
 }
 
@@ -1977,3 +1990,4 @@ renderExercises();
 </script>
 </body>
 </html>
+
