@@ -728,10 +728,15 @@ let ceCampusRungs    = 3;
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
 function getAllExercises() {
+  const builtinIds = new Set(['A','B','C'].flatMap(day => EXERCISES[day].exercises.map(ex => ex.id)));
   const builtin = ['A','B','C'].flatMap(day =>
-    EXERCISES[day].exercises.map(ex => ({ ...ex, _builtin: true, _day: day }))
+    EXERCISES[day].exercises.map(ex => {
+      const override = customExercises.find(c => c.id === ex.id);
+      return { ...(override || ex), _builtin: true, _day: day };
+    })
   );
-  return [...builtin, ...customExercises];
+  const customOnly = customExercises.filter(e => !builtinIds.has(e.id));
+  return [...builtin, ...customOnly];
 }
 
 function findExercise(id) {
@@ -881,7 +886,7 @@ function renderWbExercises() {
         <div class="chip-type">${EX_TYPE_LABELS[ex.type] || ex.type}</div>
       </div>
       <div class="chip-actions">
-        ${!ex._builtin ? `<button class="btn-edit-sm" onclick="openEditExercise('${ex.id}')">Edit</button>` : ''}
+        <button class="btn-edit-sm" onclick="openEditExercise('${ex.id}')">Edit</button>
         <button class="chip-remove" onclick="removeWbExercise(${idx})">✕</button>
       </div>
     </div>`;
@@ -912,7 +917,7 @@ function renderExercisePicker() {
         <div class="ep-item-type">${EX_TYPE_LABELS[ex.type] || ex.type}${ex._builtin ? ' · Built-in' : ''}</div>
       </div>
       <div class="ep-actions">
-        ${!ex._builtin ? `<button class="btn-edit-sm" onclick="openEditExercise('${ex.id}')">Edit</button>` : ''}
+        <button class="btn-edit-sm" onclick="openEditExercise('${ex.id}')">Edit</button>
         <button class="btn-add-sm" onclick="pickExercise('${ex.id}')">Add</button>
       </div>
     </div>`).join('');
@@ -942,8 +947,10 @@ function openCreateExercise() {
 }
 
 function openEditExercise(id) {
-  const ex = customExercises.find(e => e.id === id);
+  const builtinEx = ['A','B','C'].flatMap(day => EXERCISES[day].exercises).find(e => e.id === id);
+  const ex = customExercises.find(e => e.id === id) || builtinEx;
   if (!ex) return;
+  const isBuiltin = !!builtinEx;
   ceEditId = id;
   ceCircuitGrades   = ex.circuitGrades ? ex.circuitGrades.map(g => ({ ...g })) : [{ inputType: 'v-grade', value: 'V5' }];
   ceCircuitTracking = ex.circuitTracking || 'sends';
@@ -951,7 +958,7 @@ function openEditExercise(id) {
   document.getElementById('ce-modal-title').textContent = 'Edit Exercise';
   document.getElementById('ce-name').value = ex.name;
   document.getElementById('ce-type').value = ex.type;
-  document.getElementById('ce-delete-btn').style.display = '';
+  document.getElementById('ce-delete-btn').style.display = isBuiltin ? 'none' : '';
   renderExTypeConfig();
   document.getElementById('create-exercise-modal').classList.add('open');
 }
@@ -1045,6 +1052,7 @@ function saveNewExercise() {
   if (ceEditId) {
     const idx = customExercises.findIndex(e => e.id === ceEditId);
     if (idx >= 0) customExercises[idx] = ex;
+    else customExercises.push(ex); // first edit of a built-in — store as override
   } else {
     customExercises.push(ex);
     wbExerciseIds.push(ex.id);
@@ -1969,6 +1977,3 @@ renderExercises();
 </script>
 </body>
 </html>
-
-
-
