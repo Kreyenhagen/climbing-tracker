@@ -391,6 +391,13 @@
 
   /* LOG DOT VARIANTS */
   .log-dot.day-custom { background: #f0b44a; }
+
+  /* PREV VALUE HINT */
+  .prev-hint {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--accent); opacity: 0.75;
+    font-weight: normal; text-transform: none; letter-spacing: 0;
+  }
 </style>
 </head>
 <body>
@@ -1257,6 +1264,20 @@ function saveBenchmark() {
 }
 
 // ── EXERCISE RENDERING ────────────────────────────────────────────────────
+function hasExData(d) {
+  if (d === null || d === undefined) return false;
+  if (typeof d !== 'object') return d !== '';
+  return Object.values(d).some(v => hasExData(v));
+}
+
+function getLastExData(exId) {
+  for (const s of sessions) {
+    const d = s.exercises?.[exId];
+    if (hasExData(d)) return d;
+  }
+  return null;
+}
+
 function renderExercises() {
   const workout   = getWorkoutDef(currentWorkoutId);
   const container = document.getElementById('exercise-inputs');
@@ -1269,12 +1290,12 @@ function renderExercises() {
   let html = `<div class="exercise-section-title">${workout.name}</div>`;
   exIds.forEach(id => {
     const ex = findExercise(id);
-    if (ex) html += renderExerciseBlock(ex);
+    if (ex) html += renderExerciseBlock(ex, getLastExData(id));
   });
   container.innerHTML = html;
 }
 
-function renderExerciseBlock(ex) {
+function renderExerciseBlock(ex, prevData) {
   const editBtn = !ex._builtin
     ? `<button class="btn-edit-sm" onclick="openEditExercise('${ex.id}')" style="font-size:10px;padding:4px 8px">Edit</button>`
     : '';
@@ -1284,9 +1305,14 @@ function renderExerciseBlock(ex) {
       ${editBtn}
     </div>`;
 
+  const ph = (val, fallback) => (val && val !== '') ? val : fallback;
+  const hint = (text) => text ? `<span class="prev-hint">prev: ${text}</span>` : '';
+  const lbl = (labelText, hintText) =>
+    `<label style="display:flex;justify-content:space-between;align-items:center">${labelText}${hint(hintText)}</label>`;
+
   switch (ex.type) {
     case 'grade':
-      html += `<div class="ex-single"><label>Max grade sent</label>
+      html += `<div class="ex-single">${lbl('Max grade sent', prevData?.grade)}
         <select id="ex_${ex.id}_grade" class="ex-select">
           <option value="">— select —</option>
           ${V_GRADES.map(g => `<option>${g}</option>`).join('')}
@@ -1294,27 +1320,27 @@ function renderExerciseBlock(ex) {
       break;
 
     case 'weight':
-      html += `<div class="ex-single"><label>Weight (lbs)</label>
+      html += `<div class="ex-single">${lbl('Weight (lbs)', prevData?.weight ? prevData.weight + ' lbs' : null)}
         <input type="number" id="ex_${ex.id}_weight" inputmode="decimal" placeholder="0" class="ex-num-input"></div>`;
       break;
 
     case 'time':
-      html += `<div class="ex-single"><label>Time (seconds)</label>
+      html += `<div class="ex-single">${lbl('Time (seconds)', prevData?.time ? prevData.time + 's' : null)}
         <input type="number" id="ex_${ex.id}_time" inputmode="decimal" placeholder="0" class="ex-num-input"></div>`;
       break;
 
     case 'length':
-      html += `<div class="ex-single"><label>Length (mm)</label>
+      html += `<div class="ex-single">${lbl('Length (mm)', prevData?.length ? prevData.length + ' mm' : null)}
         <input type="number" id="ex_${ex.id}_length" inputmode="decimal" placeholder="0" class="ex-num-input"></div>`;
       break;
 
     case 'attempts':
-      html += `<div class="ex-single"><label>Attempts</label>
+      html += `<div class="ex-single">${lbl('Attempts', prevData?.attempts)}
         <input type="number" id="ex_${ex.id}_attempts" inputmode="numeric" placeholder="0" class="ex-num-input"></div>`;
       break;
 
     case 'sends':
-      html += `<div class="ex-single"><label>Sends</label>
+      html += `<div class="ex-single">${lbl('Sends', prevData?.sends)}
         <input type="number" id="ex_${ex.id}_sends" inputmode="numeric" placeholder="0" class="ex-num-input"></div>`;
       break;
 
@@ -1323,10 +1349,12 @@ function renderExerciseBlock(ex) {
       const steps = Array.from({ length: rungs - 1 }, (_, i) => String(i + 2));
       html += `<div class="campus-grid"><div class="campus-grid-header"><span></span><span>Left</span><span>Right</span></div>`;
       steps.forEach(step => {
+        const pL = ph(prevData?.[step]?.L, '—');
+        const pR = ph(prevData?.[step]?.R, '—');
         html += `<div class="campus-row">
           <span class="campus-row-label">Rung ${step}</span>
-          <input type="number" id="ex_${ex.id}_l${step}_L" inputmode="numeric" placeholder="—" class="ex-num-input campus-num">
-          <input type="number" id="ex_${ex.id}_l${step}_R" inputmode="numeric" placeholder="—" class="ex-num-input campus-num">
+          <input type="number" id="ex_${ex.id}_l${step}_L" inputmode="numeric" placeholder="${pL}" class="ex-num-input campus-num">
+          <input type="number" id="ex_${ex.id}_l${step}_R" inputmode="numeric" placeholder="${pR}" class="ex-num-input campus-num">
         </div>`;
       });
       html += `</div>`;
@@ -1336,32 +1364,35 @@ function renderExerciseBlock(ex) {
     case 'pyramid':
       html += `<div class="pyramid-grid">`;
       PYRAMID_COLORS.forEach(c => {
+        const pv = ph(prevData?.[c.id], '0');
         html += `<div class="pyramid-color"><div class="color-dot" style="background:${c.dot}"></div>${c.label}</div>
-          <input type="number" id="ex_${ex.id}_${c.id}" inputmode="numeric" placeholder="0" class="ex-num-input">`;
+          <input type="number" id="ex_${ex.id}_${c.id}" inputmode="numeric" placeholder="${pv}" class="ex-num-input">`;
       });
       html += `</div>`;
       break;
 
     case 'attempted-flashed':
       html += `<div class="ex-input-pair">
-        <div><label>Attempted</label><input type="number" id="ex_${ex.id}_attempted" inputmode="numeric" placeholder="0" class="ex-num-input"></div>
-        <div><label>Flashed</label><input type="number" id="ex_${ex.id}_flashed" inputmode="numeric" placeholder="0" class="ex-num-input"></div>
+        <div>${lbl('Attempted', prevData?.attempted)}<input type="number" id="ex_${ex.id}_attempted" inputmode="numeric" placeholder="0" class="ex-num-input"></div>
+        <div>${lbl('Flashed', prevData?.flashed)}<input type="number" id="ex_${ex.id}_flashed" inputmode="numeric" placeholder="0" class="ex-num-input"></div>
       </div>`;
       break;
 
     case 'circuit': {
       const grades   = ex.circuitGrades || [];
       const isBoth   = ex.circuitTracking === 'attempts+sends';
+      const prevGrades = prevData?.grades || [];
       html += `<div class="circuit-log-grid${isBoth ? ' both-tracking' : ''}">
         <div></div>${isBoth ? '<div class="clg-hdr">ATT</div>' : ''}<div class="clg-hdr">SENDS</div>`;
       grades.forEach((g, idx) => {
         const dot = `<div style="width:10px;height:10px;border-radius:50%;background:${colorDot(g.value)}${g.value === 'white' ? ';border:1px solid #ccc' : ''}"></div>`;
-        const lbl = g.inputType === 'v-grade'
+        const gradeLabel = g.inputType === 'v-grade'
           ? `<span class="clg-label">${g.value}</span>`
           : `<span class="clg-label">${dot}${colorLabel(g.value)}</span>`;
-        html += lbl;
-        if (isBoth) html += `<input type="number" id="ex_${ex.id}_${idx}_att" inputmode="numeric" placeholder="0" class="ex-num-input" style="text-align:center">`;
-        html += `<input type="number" id="ex_${ex.id}_${idx}_sends" inputmode="numeric" placeholder="0" class="ex-num-input" style="text-align:center">`;
+        html += gradeLabel;
+        const pg = prevGrades[idx];
+        if (isBoth) html += `<div style="text-align:center"><input type="number" id="ex_${ex.id}_${idx}_att" inputmode="numeric" placeholder="0" class="ex-num-input" style="text-align:center">${pg?.attempts ? `<div class="prev-hint" style="margin-top:2px">prev: ${pg.attempts}</div>` : ''}</div>`;
+        html += `<div style="text-align:center"><input type="number" id="ex_${ex.id}_${idx}_sends" inputmode="numeric" placeholder="0" class="ex-num-input" style="text-align:center">${pg?.sends ? `<div class="prev-hint" style="margin-top:2px">prev: ${pg.sends}</div>` : ''}</div>`;
       });
       html += `</div>`;
       break;
@@ -1990,3 +2021,4 @@ renderExercises();
 </script>
 </body>
 </html>
+
