@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Send It">
 <meta name="theme-color" content="#1e2418">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Send It — Climbing Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
@@ -2174,58 +2175,9 @@ function importBackup(input) {
 // ── UTILS ─────────────────────────────────────────────────────────────────
 function today() { return new Date().toISOString().split('T')[0]; }
 
-// ── HOME SCREEN ICON ──────────────────────────────────────────────────────
-//<div> Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik"> 
-// Freepik </a> from <a href="https://www.flaticon.com/" title="Flaticon">www.flaticon.com'</a></div>
-function parseTranslate(transformStr) {
-  const m = /translate\(([-\d.]+)[,\s]+([-\d.]+)\)/.exec(transformStr || '');
-  return m ? [parseFloat(m[1]), parseFloat(m[2])] : [0, 0];
-}
-
-// Draws the rock-icon symbol's paths straight onto the canvas (instead of rasterizing
-// the SVG through an <img>) so the icon stays perfectly flat — no double-resample blur
-// that reads as a gradient/highlight at small sizes.
-function setAppIcon() {
-  const symbol = document.getElementById('rock-icon');
-  if (!symbol) return;
-  const S = 180;
-  const canvas = document.createElement('canvas');
-  canvas.width = S; canvas.height = S;
-  const ctx = canvas.getContext('2d');
-
-  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#f4f5f0';
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, S, S);
-
-  const size  = S * 0.70;
-  const offset = (S - size) / 2;
-  const scale = size / 512; // symbol's viewBox is 0 0 512 512
-
-  ctx.save();
-  ctx.translate(offset, offset);
-  ctx.scale(scale, scale);
-  symbol.querySelectorAll('path').forEach(path => {
-    const [tx, ty] = parseTranslate(path.getAttribute('transform'));
-    ctx.save();
-    ctx.translate(tx, ty);
-    ctx.fillStyle = path.getAttribute('fill') || '#000';
-    ctx.fill(new Path2D(path.getAttribute('d')));
-    ctx.restore();
-  });
-  ctx.restore();
-
-  const link = document.createElement('link');
-  link.rel = 'apple-touch-icon';
-  link.href = canvas.toDataURL('image/png');
-  document.head.appendChild(link);
-}
-setAppIcon();
-
 populateWorkoutDropdown();
 renderBenchmarks();
 renderExercises();
 </script>
 </body>
 </html>
-
-
