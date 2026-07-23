@@ -189,6 +189,16 @@
   .log-date { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
   .log-type { font-size: 13px; font-weight: 500; }
   .log-note { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .log-item-body { flex: 1; min-width: 0; }
+  .log-ring { flex-shrink: 0; }
+  .log-ring-bg { fill: none; stroke: var(--border); stroke-width: 3; }
+  .log-ring-fg {
+    fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round;
+    transform: rotate(-90deg); transform-origin: 20px 20px;
+  }
+  .log-ring-text {
+    font-family: 'DM Mono', monospace; font-size: 10px; fill: var(--muted);
+  }
 
   /* MODAL */
   .modal-overlay {
@@ -308,6 +318,15 @@
     background: var(--accent-dim); border-color: rgba(90,158,15,0.35);
     color: var(--accent);
   }
+  .ex-tab-group { margin-bottom: 10px; }
+  .ex-tab-group:last-child { margin-bottom: 0; }
+  .ex-tab-group-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; letter-spacing: 0.08em;
+    color: var(--muted); text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .ex-tab-group .bench-tabs { margin-bottom: 0; }
   #bench-chart { width: 100%; display: block; }
   .chart-empty {
     text-align: center; padding: 36px 0;
@@ -392,9 +411,37 @@
   /* LOG DOT VARIANTS */
   .log-dot.day-custom { background: #f0b44a; }
 
+  /* SAVE CELEBRATION */
+  .save-celebration { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
+  .confetti-piece {
+    position: fixed; width: 7px; height: 10px; border-radius: 2px;
+    transform: translate(-50%, -50%);
+    animation: confetti-burst 0.85s cubic-bezier(.25,.7,.35,1) forwards;
+  }
+  @keyframes confetti-burst {
+    0%   { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)); opacity: 0; }
+  }
+  .save-badge {
+    position: fixed; transform: translate(-50%, -50%);
+    font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 700;
+    color: var(--accent); background: var(--surface); border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 20px; white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+    animation: save-badge-pop 0.85s cubic-bezier(.25,.9,.3,1) forwards;
+  }
+  @keyframes save-badge-pop {
+    0%   { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+    25%  { transform: translate(-50%, -65%) scale(1.08); opacity: 1; }
+    45%  { transform: translate(-50%, -65%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -115%) scale(1); opacity: 0; }
+  }
+
 </style>
 </head>
 <body>
+
+<div id="save-celebration" class="save-celebration"></div>
 
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -408,7 +455,7 @@
 </svg>
 
 <!-- PAGE: BENCHMARKS -->
-<div class="page active" id="page-bench">
+<div class="page" id="page-bench">
   <div class="page-header">
     <h1><svg class="tab-icon" aria-hidden="true"><use href="#rock-icon"/></svg>Benchmarks</h1>
     <p>Log tests to track your baseline progress</p>
@@ -420,7 +467,7 @@
 </div>
 
 <!-- PAGE: LOG SESSION -->
-<div class="page" id="page-log">
+<div class="page active" id="page-log">
   <div class="page-header">
     <h1><svg class="tab-icon" aria-hidden="true"><use href="#rock-icon"/></svg>Log Session</h1>
     <p>Record today's training</p>
@@ -442,7 +489,7 @@
     <label>Notes / key wins / what was hard</label>
     <textarea id="session-notes" placeholder="e.g. Felt strong on the campus board. Fingers held up well."></textarea>
   </div>
-  <button class="btn-primary" onclick="saveSession()">SAVE SESSION</button>
+  <button class="btn-primary" onclick="saveSession(this)">SAVE SESSION</button>
 </div>
 
 <!-- PAGE: PROGRESS -->
@@ -478,11 +525,11 @@
 
 <!-- NAV -->
 <nav>
-  <button class="nav-btn active" onclick="showPage('bench', this)">
+  <button class="nav-btn" onclick="showPage('bench', this)">
     <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
     Tests
   </button>
-  <button class="nav-btn" onclick="showPage('log', this)">
+  <button class="nav-btn active" onclick="showPage('log', this)">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
     Log
   </button>
@@ -758,6 +805,24 @@ function availableWorkoutIds() {
   const builtins = ['A','B','C'].filter(id => !deletedBuiltins.includes(id));
   const customs  = customWorkouts.filter(w => !['A','B','C'].includes(w.id)).map(w => w.id);
   return [...builtins, ...customs];
+}
+
+// Exercise types that represent actual on-wall climbing, vs. gym/hangboard training
+const CLIMBING_EX_TYPES = ['grade', 'pyramid', 'attempted-flashed', 'circuit', 'sends'];
+// Climbing exercises take far longer than a gym exercise (flashing, projecting, circuits),
+// so they're weighted heavier when computing what fraction of a session got done. The weight
+// is per-exercise, so it scales cleanly whether a workout has one climbing exercise, several,
+// or is made up entirely of climbing exercises.
+const CLIMBING_EX_WEIGHT = 3;
+
+function findClimbingExercise(workout) {
+  const exIds = (workout && workout.exercises) || [];
+  const climbing = exIds.map(findExercise).find(ex => ex && CLIMBING_EX_TYPES.includes(ex.type));
+  return climbing ? climbing.id : (exIds[0] || null);
+}
+
+function exerciseWeight(ex) {
+  return ex && CLIMBING_EX_TYPES.includes(ex.type) ? CLIMBING_EX_WEIGHT : 1;
 }
 
 function getAllBenchmarks() {
@@ -1273,6 +1338,30 @@ function getLastExData(exId) {
   return null;
 }
 
+// Whether an exercise was actually logged in a session (ignores fields that
+// are always populated regardless of user input, e.g. circuit grade labels).
+function isExerciseComplete(ex, d) {
+  if (!d) return false;
+  switch (ex.type) {
+    case 'grade':    return !!d.grade;
+    case 'weight':   return d.weight !== '' && d.weight != null;
+    case 'time':     return d.time !== '' && d.time != null;
+    case 'length':   return d.length !== '' && d.length != null;
+    case 'attempts': return d.attempts !== '' && d.attempts != null;
+    case 'sends':    return d.sends !== '' && d.sends != null;
+    case 'campus-lr':
+      return Object.values(d).some(step => (step.L !== '' && step.L != null) || (step.R !== '' && step.R != null));
+    case 'pyramid':
+      return Object.values(d).some(v => v !== '' && v != null);
+    case 'attempted-flashed':
+      return (d.attempted !== '' && d.attempted != null) || (d.flashed !== '' && d.flashed != null);
+    case 'circuit':
+      return (d.grades || []).some(g => (g.sends !== '' && g.sends != null) || (g.attempts !== '' && g.attempts != null));
+    default:
+      return hasExData(d);
+  }
+}
+
 function renderExercises() {
   const workout   = getWorkoutDef(currentWorkoutId);
   const container = document.getElementById('exercise-inputs');
@@ -1446,7 +1535,7 @@ function collectExerciseData() {
 // ── SESSION ───────────────────────────────────────────────────────────────
 document.getElementById('session-date').value = today();
 
-function saveSession() {
+function saveSession(btn) {
   const workout = getWorkoutDef(currentWorkoutId);
   const s = {
     date:        document.getElementById('session-date').value,
@@ -1460,13 +1549,87 @@ function saveSession() {
   save('sessions', sessions);
   renderExercises();
   document.getElementById('session-notes').value = '';
-  alert('Session saved ✓');
+  celebrateSave(btn);
+
+  const climbingExId = workout ? findClimbingExercise(workout) : null;
+  if (climbingExId) currentExTab = climbingExId;
+  const progressBtn = document.querySelector('.nav-btn[onclick*="\'progress\'"]');
+  showPage('progress', progressBtn);
+  document.getElementById('ex-tabs').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Confetti burst + "Saved" badge, originating from the button that was clicked.
+function celebrateSave(originEl) {
+  const layer = document.getElementById('save-celebration');
+  layer.innerHTML = '';
+
+  const rect = originEl ? originEl.getBoundingClientRect()
+    : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
+  const originX = rect.left + rect.width / 2;
+  const originY = rect.top + rect.height / 2;
+
+  const badge = document.createElement('div');
+  badge.className = 'save-badge';
+  badge.style.left = originX + 'px';
+  badge.style.top  = originY + 'px';
+  badge.textContent = 'Session Saved ✓';
+  layer.appendChild(badge);
+
+  const COLORS = ['#5a9e0f', '#4ab4f0', '#f0b44a', '#a855f7', '#ec4899', '#22c55e'];
+  const N = 26;
+  for (let i = 0; i < N; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = 55 + Math.random() * 85;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist - 35; // bias upward
+    piece.style.left = originX + 'px';
+    piece.style.top  = originY + 'px';
+    piece.style.setProperty('--dx', dx + 'px');
+    piece.style.setProperty('--dy', dy + 'px');
+    piece.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+    piece.style.background = COLORS[i % COLORS.length];
+    piece.style.animationDelay = (Math.random() * 0.08) + 's';
+    layer.appendChild(piece);
+  }
+
+  setTimeout(() => { layer.innerHTML = ''; }, 1000);
 }
 
 // ── PROGRESS ──────────────────────────────────────────────────────────────
 let currentBenchTab = BENCHMARKS[0].id;
 
 function sessionWorkoutId(s) { return s.workoutId || s.day; }
+
+// Weighted completion % for a session: each exercise in its workout contributes
+// its weight to the total, and to the completed total if it was logged.
+function sessionCompleteness(s) {
+  const workout = getWorkoutDef(sessionWorkoutId(s));
+  const exIds = (workout && workout.exercises) || Object.keys(s.exercises || {});
+  if (!exIds.length) return null;
+
+  let total = 0, done = 0;
+  exIds.forEach(exId => {
+    const ex = findExercise(exId);
+    const w  = exerciseWeight(ex);
+    total += w;
+    const data = s.exercises?.[exId];
+    const complete = ex ? isExerciseComplete(ex, data) : hasExData(data);
+    if (complete) done += w;
+  });
+  return total ? Math.round((done / total) * 100) : null;
+}
+
+function completionRing(pct) {
+  const r = 16, c = 2 * Math.PI * r;
+  const offset = c * (1 - pct / 100);
+  return `<svg class="log-ring" viewBox="0 0 40 40" width="40" height="40">
+    <circle class="log-ring-bg" cx="20" cy="20" r="${r}"></circle>
+    <circle class="log-ring-fg" cx="20" cy="20" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${offset}"></circle>
+    <text class="log-ring-text" x="20" y="21" text-anchor="middle" dominant-baseline="middle">${pct}%</text>
+  </svg>`;
+}
 
 function sessionsThisWeek() {
   const now = new Date();
@@ -1503,13 +1666,15 @@ function renderProgress() {
     const wid   = sessionWorkoutId(s);
     const label = s.workoutName || builtinLabel[wid] || wid || 'Session';
     const dotCls = s.day === 'A' ? '' : s.day === 'B' ? ' day-b' : s.day === 'C' ? ' day-c' : ' day-custom';
+    const pct = sessionCompleteness(s);
     return `<div class="log-item">
       <div class="log-dot${dotCls}"></div>
-      <div>
+      <div class="log-item-body">
         <div class="log-date">${s.date}</div>
         <div class="log-type">${label}</div>
-        ${s.notes ? `<div class="log-note">${s.notes.substring(0,80)}${s.notes.length > 80 ? '…' : ''}</div>` : ''}
+        ${s.notes ? `<div class="log-note">${s.notes}</div>` : ''}
       </div>
+      ${pct != null ? completionRing(pct) : ''}
     </div>`;
   }).join('');
 
@@ -1710,11 +1875,33 @@ function renderExerciseChart() {
   if (!currentExTab || !withData.find(ex => ex.id === currentExTab)) {
     currentExTab = withData[0].id;
   }
-  tabsEl.innerHTML = withData.map(ex => {
+
+  const tabBtn = ex => {
     const label = ex._builtin ? ex.tab || ex.name : ex.name;
     return `<button class="bench-tab${ex.id === currentExTab ? ' active' : ''}"
       onclick="selectExTab('${ex.id}')">${label}</button>`;
-  }).join('');
+  };
+
+  // Group exercises by the workout(s) they belong to
+  const groups = [];
+  const grouped = new Set();
+  availableWorkoutIds().forEach(wid => {
+    const w = getWorkoutDef(wid);
+    if (!w) return;
+    const exs = w.exercises.map(id => withData.find(ex => ex.id === id)).filter(Boolean);
+    if (!exs.length) return;
+    groups.push({ label: w.name, exs });
+    exs.forEach(ex => grouped.add(ex.id));
+  });
+  const orphan = withData.filter(ex => !grouped.has(ex.id));
+  if (orphan.length) groups.push({ label: 'Other', exs: orphan });
+
+  tabsEl.innerHTML = groups.map(g => `
+    <div class="ex-tab-group">
+      <div class="ex-tab-group-label">${g.label}</div>
+      <div class="bench-tabs">${g.exs.map(tabBtn).join('')}</div>
+    </div>
+  `).join('');
   drawExerciseChart(currentExTab);
 }
 
