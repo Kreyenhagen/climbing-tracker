@@ -2180,17 +2180,48 @@ function today() { return new Date().toISOString().split('T')[0]; }
 function setAppIcon() {
   const symbol = document.getElementById('rock-icon');
   if (!symbol) return;
-  const S = 180, c = document.createElement('canvas');
-  c.width = S; c.height = S;
-  const ctx = c.getContext('2d');
+
+  // Render at a larger size first so we can find the glyph's actual drawn
+  // bounding box — the source SVG has built-in whitespace around the rock
+  // shape within its viewBox, which otherwise shows up as a washed-out
+  // margin around a small icon once it's masked into a home screen tile.
+  const RENDER = 512;
+  const renderCanvas = document.createElement('canvas');
+  renderCanvas.width = RENDER; renderCanvas.height = RENDER;
+  const rctx = renderCanvas.getContext('2d');
+
   const img = new Image();
   img.onload = () => {
+    rctx.clearRect(0, 0, RENDER, RENDER);
+    rctx.drawImage(img, 0, 0, RENDER, RENDER);
+    URL.revokeObjectURL(img.src);
+
+    const { data } = rctx.getImageData(0, 0, RENDER, RENDER);
+    let minX = RENDER, minY = RENDER, maxX = 0, maxY = 0;
+    for (let y = 0; y < RENDER; y++) {
+      for (let x = 0; x < RENDER; x++) {
+        if (data[(y * RENDER + x) * 4 + 3] > 10) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    const glyphW = maxX - minX, glyphH = maxY - minY;
+
+    const S = 180, c = document.createElement('canvas');
+    c.width = S; c.height = S;
+    const ctx = c.getContext('2d');
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, S, S);
-    const size = Math.round(S * 0.70);
-    const offset = (S - size) / 2;
-    ctx.drawImage(img, offset, offset, size, size);
-    URL.revokeObjectURL(img.src);
+
+    const PAD = 0.08; // slim breathing room so the glyph reads as a bold, flat icon
+    const scale  = (S * (1 - PAD * 2)) / Math.max(glyphW, glyphH);
+    const drawW  = glyphW * scale, drawH = glyphH * scale;
+    const dx = (S - drawW) / 2, dy = (S - drawH) / 2;
+    ctx.drawImage(renderCanvas, minX, minY, glyphW, glyphH, dx, dy, drawW, drawH);
+
     const link = document.createElement('link');
     link.rel = 'apple-touch-icon';
     link.href = c.toDataURL('image/png');
@@ -2210,3 +2241,4 @@ renderExercises();
 </script>
 </body>
 </html>
+
