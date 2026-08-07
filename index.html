@@ -1553,14 +1553,18 @@ function saveSession(btn) {
   document.getElementById('session-notes').value = '';
   celebrateSave(btn);
 
-  const climbingExId = workout ? findClimbingExercise(workout) : null;
-  if (climbingExId) currentExTab = climbingExId;
-  const progressBtn = document.querySelector('.nav-btn[onclick*="\'progress\'"]');
-  showPage('progress', progressBtn);
-  document.getElementById('ex-tabs').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Let the confetti/badge animation finish playing before switching screens.
+  setTimeout(() => {
+    const climbingExId = workout ? findClimbingExercise(workout) : null;
+    if (climbingExId) currentExTab = climbingExId;
+    const progressBtn = document.querySelector('.nav-btn[onclick*="\'progress\'"]');
+    showPage('progress', progressBtn);
+    document.getElementById('ex-tabs').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, CELEBRATION_DURATION_MS);
 }
 
 // Confetti burst + "Saved" badge, originating from the button that was clicked.
+const CELEBRATION_DURATION_MS = 1000; // keep in sync with confetti/badge animation lengths above
 function celebrateSave(originEl) {
   const layer = document.getElementById('save-celebration');
   layer.innerHTML = '';
@@ -1596,7 +1600,7 @@ function celebrateSave(originEl) {
     layer.appendChild(piece);
   }
 
-  setTimeout(() => { layer.innerHTML = ''; }, 1000);
+  setTimeout(() => { layer.innerHTML = ''; }, CELEBRATION_DURATION_MS);
 }
 
 // ── PROGRESS ──────────────────────────────────────────────────────────────
