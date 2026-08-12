@@ -55,6 +55,11 @@
   /* PAGES */
   .page { display: none; padding: 0 16px; }
   .page.active { display: block; }
+  .page.slide-in { animation: page-slide-in 0.4s cubic-bezier(.25,.8,.35,1); }
+  @keyframes page-slide-in {
+    0%   { transform: translateX(28px); opacity: 0; }
+    100% { transform: translateX(0);    opacity: 1; }
+  }
 
   /* HEADER */
   .page-header {
@@ -129,6 +134,20 @@
     background: var(--accent-dim); border-color: rgba(90,158,15,0.35);
     color: var(--accent);
   }
+
+  /* CHART TOGGLES (e.g. circuit display options) */
+  .chart-toggle-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .chart-toggle-group {
+    display: flex; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--r); overflow: hidden;
+  }
+  .chart-toggle-btn {
+    padding: 6px 10px; background: none; border: none; color: var(--muted);
+    cursor: pointer; font-family: 'DM Mono', monospace; font-size: 10.5px;
+    transition: all 0.15s;
+  }
+  .chart-toggle-btn + .chart-toggle-btn { border-left: 1px solid var(--border); }
+  .chart-toggle-btn.active { background: var(--accent-dim); color: var(--accent); }
   .input-row { margin-bottom: 12px; }
   .input-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-family: 'DM Mono', monospace; }
   .input-row input, .input-row textarea, .input-row select {
@@ -513,6 +532,16 @@
     <div class="bench-tabs" id="ex-tabs"></div>
     <canvas id="ex-chart" height="200"></canvas>
     <div id="ex-chart-empty" class="chart-empty" style="display:none">No data logged yet for this exercise.</div>
+    <div id="circuit-chart-toggles" class="chart-toggle-row" style="display:none">
+      <div class="chart-toggle-group" id="circuit-value-toggle">
+        <button class="chart-toggle-btn" data-value-mode="raw"     onclick="setCircuitValueMode('raw')">As recorded</button>
+        <button class="chart-toggle-btn" data-value-mode="percent" onclick="setCircuitValueMode('percent')">Percentage</button>
+      </div>
+      <div class="chart-toggle-group">
+        <button class="chart-toggle-btn" data-agg-mode="split" onclick="setCircuitAggMode('split')">Split</button>
+        <button class="chart-toggle-btn" data-agg-mode="total" onclick="setCircuitAggMode('total')">Total</button>
+      </div>
+    </div>
   </div>
   <div class="card">
     <div class="card-label">Recent sessions</div>
@@ -848,10 +877,15 @@ function colorLabel(colorId) {
 }
 
 // ── PAGES ─────────────────────────────────────────────────────────────────
-function showPage(id, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+function showPage(id, btn, opts = {}) {
+  document.querySelectorAll('.page').forEach(p => { p.classList.remove('active'); p.classList.remove('slide-in'); });
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
+  const page = document.getElementById('page-' + id);
+  page.classList.add('active');
+  if (opts.slide) {
+    page.classList.add('slide-in');
+    page.addEventListener('animationend', () => page.classList.remove('slide-in'), { once: true });
+  }
   btn.classList.add('active');
   if (id === 'bench')    renderBenchmarks();
   if (id === 'progress') renderProgress();
@@ -1558,7 +1592,7 @@ function saveSession(btn) {
     const climbingExId = workout ? findClimbingExercise(workout) : null;
     if (climbingExId) currentExTab = climbingExId;
     const progressBtn = document.querySelector('.nav-btn[onclick*="\'progress\'"]');
-    showPage('progress', progressBtn);
+    showPage('progress', progressBtn, { slide: true });
     document.getElementById('ex-tabs').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, CELEBRATION_DURATION_MS);
 }
@@ -1867,6 +1901,38 @@ function drawBenchChart(benchId) {
 // ── EXERCISE CHART ────────────────────────────────────────────────────────
 let currentExTab = null; // exercise id string
 
+// Circuit chart display options — persisted across sessions.
+let circuitValueMode = load('circuitValueMode', 'raw');   // 'raw' | 'percent'
+let circuitAggMode   = load('circuitAggMode',   'split'); // 'split' | 'total'
+
+function setCircuitValueMode(mode) {
+  circuitValueMode = mode;
+  save('circuitValueMode', mode);
+  renderCircuitToggles();
+  drawExerciseChart(currentExTab);
+}
+function setCircuitAggMode(mode) {
+  circuitAggMode = mode;
+  save('circuitAggMode', mode);
+  renderCircuitToggles();
+  drawExerciseChart(currentExTab);
+}
+
+// Show/hide + sync the active state of the circuit display toggles for the
+// currently selected exercise tab (only relevant for 'circuit'-type exercises).
+function renderCircuitToggles() {
+  const ex   = findExercise(currentExTab);
+  const wrap = document.getElementById('circuit-chart-toggles');
+  if (!ex || ex.type !== 'circuit') { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+
+  const isBoth = ex.circuitTracking === 'attempts+sends';
+  document.getElementById('circuit-value-toggle').style.display = isBoth ? 'flex' : 'none';
+
+  wrap.querySelectorAll('[data-value-mode]').forEach(b => b.classList.toggle('active', b.dataset.valueMode === circuitValueMode));
+  wrap.querySelectorAll('[data-agg-mode]').forEach(b => b.classList.toggle('active', b.dataset.aggMode === circuitAggMode));
+}
+
 function renderExerciseChart() {
   const allEx = getAllExercises();
   const withData = allEx.filter(ex => sessions.some(s => s.exercises && s.exercises[ex.id]));
@@ -1876,6 +1942,7 @@ function renderExerciseChart() {
     tabsEl.innerHTML = '';
     document.getElementById('ex-chart').style.display = 'none';
     document.getElementById('ex-chart-empty').style.display = 'block';
+    document.getElementById('circuit-chart-toggles').style.display = 'none';
     return;
   }
   if (!currentExTab || !withData.find(ex => ex.id === currentExTab)) {
@@ -1908,6 +1975,7 @@ function renderExerciseChart() {
       <div class="bench-tabs">${g.exs.map(tabBtn).join('')}</div>
     </div>
   `).join('');
+  renderCircuitToggles();
   drawExerciseChart(currentExTab);
 }
 
@@ -1944,6 +2012,7 @@ function drawExerciseChart(exId) {
   }).filter(Boolean);
 
   let series = [];
+  let axisUnit = 'lbs';
   const CHART_COLORS = ['#5a9e0f','#4ab4f0','#a855f7','#f97316','#ef4444','#fbbf24','#22c55e','#ec4899','#1a7aaa','#6ee7b7'];
 
   switch (ex.type) {
@@ -1986,16 +2055,59 @@ function drawExerciseChart(exId) {
     case 'circuit': {
       const grades   = ex.circuitGrades || [];
       const isBoth   = ex.circuitTracking === 'attempts+sends';
-      grades.forEach((g, idx) => {
-        const col   = CHART_COLORS[idx % CHART_COLORS.length];
-        const glbl  = g.inputType === 'v-grade' ? g.value : colorLabel(g.value);
-        const sPts  = relevantSessions.map(s => { const v = parseFloat(s.exercises[exId]?.grades?.[idx]?.sends); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean);
-        if (sPts.length) series.push({ label: `${glbl} sends`, color: col, points: sPts });
-        if (isBoth) {
-          const aPts = relevantSessions.map(s => { const v = parseFloat(s.exercises[exId]?.grades?.[idx]?.attempts); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean);
-          if (aPts.length) series.push({ label: `${glbl} att`, color: '#7a8070', points: aPts });
+      const usePct   = isBoth && circuitValueMode === 'percent';
+      const useTotal = circuitAggMode === 'total';
+      if (usePct) axisUnit = '%';
+
+      // Sum of a field across every grade/color logged for a session, for "Total" mode.
+      // Returns null (rather than 0) when nothing was actually logged that day, so
+      // un-logged sessions don't show up as fake zero points on the chart.
+      const sumField = (s, field) => {
+        const gr = s.exercises[exId]?.grades || [];
+        let sum = 0, any = false;
+        gr.forEach(g => { const v = parseFloat(g?.[field]); if (!isNaN(v)) { sum += v; any = true; } });
+        return any ? sum : null;
+      };
+
+      if (useTotal) {
+        if (usePct) {
+          const p = relevantSessions.map(s => {
+            const attempts = sumField(s, 'attempts');
+            if (!attempts) return null;
+            const sends = sumField(s, 'sends') || 0;
+            const pct = Math.round((sends / attempts) * 100);
+            return { date: s.date, value: pct, vLabel: pct + '%' };
+          }).filter(Boolean);
+          if (p.length) series.push({ label: 'Total sends %', color: '#5a9e0f', points: p });
+        } else {
+          const sPts = relevantSessions.map(s => { const v = sumField(s, 'sends'); return v === null ? null : { date: s.date, value: v }; }).filter(Boolean);
+          if (sPts.length) series.push({ label: 'Total sends', color: '#5a9e0f', points: sPts });
+          if (isBoth) {
+            const aPts = relevantSessions.map(s => { const v = sumField(s, 'attempts'); return v === null ? null : { date: s.date, value: v }; }).filter(Boolean);
+            if (aPts.length) series.push({ label: 'Total attempts', color: '#7a8070', points: aPts });
+          }
         }
-      });
+      } else {
+        grades.forEach((g, idx) => {
+          const col  = g.inputType === 'color' ? colorDot(g.value) : CHART_COLORS[idx % CHART_COLORS.length];
+          const glbl = g.inputType === 'v-grade' ? g.value : colorLabel(g.value);
+          if (usePct) {
+            const pPts = relevantSessions.map(s => {
+              const d = s.exercises[exId]?.grades?.[idx];
+              const sends = parseFloat(d?.sends) || 0, attempts = parseFloat(d?.attempts) || 0;
+              return attempts ? { date: s.date, value: Math.round((sends / attempts) * 100), vLabel: Math.round((sends / attempts) * 100) + '%' } : null;
+            }).filter(Boolean);
+            if (pPts.length) series.push({ label: `${glbl} %`, color: col, points: pPts });
+          } else {
+            const sPts = relevantSessions.map(s => { const v = parseFloat(s.exercises[exId]?.grades?.[idx]?.sends); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean);
+            if (sPts.length) series.push({ label: `${glbl} sends`, color: col, points: sPts });
+            if (isBoth) {
+              const aPts = relevantSessions.map(s => { const v = parseFloat(s.exercises[exId]?.grades?.[idx]?.attempts); return isNaN(v) ? null : { date: s.date, value: v }; }).filter(Boolean);
+              if (aPts.length) series.push({ label: `${glbl} att`, color: '#7a8070', points: aPts });
+            }
+          }
+        });
+      }
       break;
     }
   }
@@ -2082,7 +2194,7 @@ function drawExerciseChart(exId) {
   ctx.translate(11, PAD.top + LEGEND_H + H / 2);
   ctx.rotate(-Math.PI / 2);
   ctx.textAlign = 'center'; ctx.font = '9px DM Mono, monospace'; ctx.fillStyle = mutedCol;
-  ctx.fillText(isGrade ? 'grade' : 'lbs', 0, 0);
+  ctx.fillText(isGrade ? 'grade' : axisUnit, 0, 0);
   ctx.restore();
 
   // Draw each series
