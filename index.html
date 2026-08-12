@@ -2137,7 +2137,7 @@ function drawExerciseChart(exId) {
       const isBoth   = ex.circuitTracking === 'attempts+sends';
       const usePct   = isBoth && circuitValueMode === 'percent';
       const useTotal = circuitAggMode === 'total';
-      if (usePct) axisUnit = '%';
+      axisUnit = usePct ? '%' : 'count';
 
       // Sum of a field across every grade/color logged for a session, for "Total" mode.
       // Returns null (rather than 0) when nothing was actually logged that day, so
