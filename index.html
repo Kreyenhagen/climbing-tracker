@@ -195,11 +195,12 @@
   .stat-label { font-size: 11px; color: var(--muted); margin-top: 3px; font-family: 'DM Mono', monospace; }
 
   /* LOG LIST */
+  .log-entry { border-bottom: 1px solid var(--border); }
+  .log-entry:last-child { border-bottom: none; }
   .log-item {
     display: flex; align-items: flex-start; gap: 12px;
-    padding: 12px 0; border-bottom: 1px solid var(--border);
+    padding: 12px 0;
   }
-  .log-item:last-child { border-bottom: none; }
   .log-dot {
     width: 8px; height: 8px; border-radius: 50%;
     background: var(--accent); margin-top: 5px; flex-shrink: 0;
@@ -218,6 +219,10 @@
   }
   .log-ring-text {
     font-family: 'DM Mono', monospace; font-size: 10px; fill: var(--muted);
+  }
+  .session-edit-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 14px; margin: 0 0 14px;
   }
 
   /* MODAL */
@@ -781,6 +786,7 @@ function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
 let sessions        = load('sessions', []);
 let logShowAll      = false;
+let editingSessionIdx = null; // index into `sessions` of the entry being corrected, or null
 let benchLogs       = load('benchLogs', {});
 let customExercises          = load('customExercises', []);
 let customWorkouts           = load('customWorkouts', []);
@@ -1415,8 +1421,14 @@ function renderExercises() {
   container.innerHTML = html;
 }
 
-function renderExerciseBlock(ex, prevData) {
-  const editBtn = !ex._builtin
+// opts.idPrefix: id prefix for the inputs (defaults to 'ex_', the new-session form).
+// opts.fill: 'placeholder' (default, new-session form — prevData is just a gray hint)
+//            or 'value' (correction form — prevData is the real value being edited).
+function renderExerciseBlock(ex, prevData, opts = {}) {
+  const idPrefix = opts.idPrefix || 'ex_';
+  const isEdit   = opts.fill === 'value';
+
+  const editBtn = (!ex._builtin && !isEdit)
     ? `<button class="btn-edit-sm" onclick="openEditExercise('${ex.id}')" style="font-size:10px;padding:4px 8px">Edit</button>`
     : '';
   let html = `<div class="exercise-block">
@@ -1426,11 +1438,13 @@ function renderExerciseBlock(ex, prevData) {
     </div>`;
 
   const ph = (val, fallback) => (val && val !== '') ? val : fallback;
+  // Real value in correction mode, placeholder hint in the new-session form.
+  const fieldAttr = (val, fallback) => isEdit ? `value="${val ?? ''}"` : `placeholder="${ph(val, fallback)}"`;
 
   switch (ex.type) {
     case 'grade':
       html += `<div class="ex-single"><label>Max grade sent</label>
-        <select id="ex_${ex.id}_grade" class="ex-select">
+        <select id="${idPrefix}${ex.id}_grade" class="ex-select">
           <option value="">— select —</option>
           ${V_GRADES.map(g => `<option${prevData?.grade === g ? ' selected' : ''}>${g}</option>`).join('')}
         </select></div>`;
@@ -1438,27 +1452,27 @@ function renderExerciseBlock(ex, prevData) {
 
     case 'weight':
       html += `<div class="ex-single"><label>Weight (lbs)</label>
-        <input type="number" id="ex_${ex.id}_weight" inputmode="decimal" placeholder="${ph(prevData?.weight, '0')}" class="ex-num-input"></div>`;
+        <input type="number" id="${idPrefix}${ex.id}_weight" inputmode="decimal" ${fieldAttr(prevData?.weight, '0')} class="ex-num-input"></div>`;
       break;
 
     case 'time':
       html += `<div class="ex-single"><label>Time (seconds)</label>
-        <input type="number" id="ex_${ex.id}_time" inputmode="decimal" placeholder="${ph(prevData?.time, '0')}" class="ex-num-input"></div>`;
+        <input type="number" id="${idPrefix}${ex.id}_time" inputmode="decimal" ${fieldAttr(prevData?.time, '0')} class="ex-num-input"></div>`;
       break;
 
     case 'length':
       html += `<div class="ex-single"><label>Length (mm)</label>
-        <input type="number" id="ex_${ex.id}_length" inputmode="decimal" placeholder="${ph(prevData?.length, '0')}" class="ex-num-input"></div>`;
+        <input type="number" id="${idPrefix}${ex.id}_length" inputmode="decimal" ${fieldAttr(prevData?.length, '0')} class="ex-num-input"></div>`;
       break;
 
     case 'attempts':
       html += `<div class="ex-single"><label>Attempts</label>
-        <input type="number" id="ex_${ex.id}_attempts" inputmode="numeric" placeholder="${ph(prevData?.attempts, '0')}" class="ex-num-input"></div>`;
+        <input type="number" id="${idPrefix}${ex.id}_attempts" inputmode="numeric" ${fieldAttr(prevData?.attempts, '0')} class="ex-num-input"></div>`;
       break;
 
     case 'sends':
       html += `<div class="ex-single"><label>Sends</label>
-        <input type="number" id="ex_${ex.id}_sends" inputmode="numeric" placeholder="${ph(prevData?.sends, '0')}" class="ex-num-input"></div>`;
+        <input type="number" id="${idPrefix}${ex.id}_sends" inputmode="numeric" ${fieldAttr(prevData?.sends, '0')} class="ex-num-input"></div>`;
       break;
 
     case 'campus-lr': {
@@ -1468,8 +1482,8 @@ function renderExerciseBlock(ex, prevData) {
       steps.forEach(step => {
         html += `<div class="campus-row">
           <span class="campus-row-label">Rung ${step}</span>
-          <input type="number" id="ex_${ex.id}_l${step}_L" inputmode="numeric" placeholder="${ph(prevData?.[step]?.L, '—')}" class="ex-num-input campus-num">
-          <input type="number" id="ex_${ex.id}_l${step}_R" inputmode="numeric" placeholder="${ph(prevData?.[step]?.R, '—')}" class="ex-num-input campus-num">
+          <input type="number" id="${idPrefix}${ex.id}_l${step}_L" inputmode="numeric" ${fieldAttr(prevData?.[step]?.L, '—')} class="ex-num-input campus-num">
+          <input type="number" id="${idPrefix}${ex.id}_l${step}_R" inputmode="numeric" ${fieldAttr(prevData?.[step]?.R, '—')} class="ex-num-input campus-num">
         </div>`;
       });
       html += `</div>`;
@@ -1480,15 +1494,15 @@ function renderExerciseBlock(ex, prevData) {
       html += `<div class="pyramid-grid">`;
       PYRAMID_COLORS.forEach(c => {
         html += `<div class="pyramid-color"><div class="color-dot" style="background:${c.dot}"></div>${c.label}</div>
-          <input type="number" id="ex_${ex.id}_${c.id}" inputmode="numeric" placeholder="${ph(prevData?.[c.id], '0')}" class="ex-num-input">`;
+          <input type="number" id="${idPrefix}${ex.id}_${c.id}" inputmode="numeric" ${fieldAttr(prevData?.[c.id], '0')} class="ex-num-input">`;
       });
       html += `</div>`;
       break;
 
     case 'attempted-flashed':
       html += `<div class="ex-input-pair">
-        <div><label>Attempted</label><input type="number" id="ex_${ex.id}_attempted" inputmode="numeric" placeholder="${ph(prevData?.attempted, '0')}" class="ex-num-input"></div>
-        <div><label>Flashed</label><input type="number" id="ex_${ex.id}_flashed" inputmode="numeric" placeholder="${ph(prevData?.flashed, '0')}" class="ex-num-input"></div>
+        <div><label>Attempted</label><input type="number" id="${idPrefix}${ex.id}_attempted" inputmode="numeric" ${fieldAttr(prevData?.attempted, '0')} class="ex-num-input"></div>
+        <div><label>Flashed</label><input type="number" id="${idPrefix}${ex.id}_flashed" inputmode="numeric" ${fieldAttr(prevData?.flashed, '0')} class="ex-num-input"></div>
       </div>`;
       break;
 
@@ -1505,8 +1519,8 @@ function renderExerciseBlock(ex, prevData) {
           : `<span class="clg-label">${dot}${colorLabel(g.value)}</span>`;
         html += gradeLabel;
         const pg = prevGrades[idx];
-        if (isBoth) html += `<input type="number" id="ex_${ex.id}_${idx}_att" inputmode="numeric" placeholder="${ph(pg?.attempts, '0')}" class="ex-num-input" style="text-align:center">`;
-        html += `<input type="number" id="ex_${ex.id}_${idx}_sends" inputmode="numeric" placeholder="${ph(pg?.sends, '0')}" class="ex-num-input" style="text-align:center">`;
+        if (isBoth) html += `<input type="number" id="${idPrefix}${ex.id}_${idx}_att" inputmode="numeric" ${fieldAttr(pg?.attempts, '0')} class="ex-num-input" style="text-align:center">`;
+        html += `<input type="number" id="${idPrefix}${ex.id}_${idx}_sends" inputmode="numeric" ${fieldAttr(pg?.sends, '0')} class="ex-num-input" style="text-align:center">`;
       });
       html += `</div>`;
       break;
@@ -1523,41 +1537,47 @@ function collectExerciseData() {
   const exIds = workout._builtin
     ? EXERCISES[currentWorkoutId].exercises.map(e => e.id)
     : (workout.exercises || []);
+  return collectExerciseDataFor(exIds, 'ex_');
+}
 
+// Reads exercise input values from the DOM for the given exercise ids, using
+// idPrefix to locate the fields (e.g. 'ex_' for the new-session form, or
+// 'edit_<idx>_' for a past session's correction form).
+function collectExerciseDataFor(exIds, idPrefix) {
   const data = {};
   exIds.forEach(exId => {
     const ex = findExercise(exId);
     if (!ex) return;
     const g = s => document.getElementById(s)?.value || '';
     switch (ex.type) {
-      case 'grade':   data[exId] = { grade:    g(`ex_${exId}_grade`) };    break;
-      case 'weight':  data[exId] = { weight:   g(`ex_${exId}_weight`) };   break;
-      case 'length':  data[exId] = { length:   g(`ex_${exId}_length`) };   break;
-      case 'time':    data[exId] = { time:     g(`ex_${exId}_time`) };     break;
-      case 'attempts':data[exId] = { attempts: g(`ex_${exId}_attempts`) }; break;
-      case 'sends':   data[exId] = { sends:    g(`ex_${exId}_sends`) };    break;
+      case 'grade':   data[exId] = { grade:    g(`${idPrefix}${exId}_grade`) };    break;
+      case 'weight':  data[exId] = { weight:   g(`${idPrefix}${exId}_weight`) };   break;
+      case 'length':  data[exId] = { length:   g(`${idPrefix}${exId}_length`) };   break;
+      case 'time':    data[exId] = { time:     g(`${idPrefix}${exId}_time`) };     break;
+      case 'attempts':data[exId] = { attempts: g(`${idPrefix}${exId}_attempts`) }; break;
+      case 'sends':   data[exId] = { sends:    g(`${idPrefix}${exId}_sends`) };    break;
       case 'campus-lr': {
         const rungs = ex.campusRungs || 3;
         const steps = Array.from({ length: rungs - 1 }, (_, i) => String(i + 2));
         const d = {};
-        steps.forEach(step => { d[step] = { L: g(`ex_${exId}_l${step}_L`), R: g(`ex_${exId}_l${step}_R`) }; });
+        steps.forEach(step => { d[step] = { L: g(`${idPrefix}${exId}_l${step}_L`), R: g(`${idPrefix}${exId}_l${step}_R`) }; });
         data[exId] = d;
         break;
       }
       case 'pyramid': {
         const d = {};
-        PYRAMID_COLORS.forEach(c => { d[c.id] = g(`ex_${exId}_${c.id}`); });
+        PYRAMID_COLORS.forEach(c => { d[c.id] = g(`${idPrefix}${exId}_${c.id}`); });
         data[exId] = d;
         break;
       }
       case 'attempted-flashed':
-        data[exId] = { attempted: g(`ex_${exId}_attempted`), flashed: g(`ex_${exId}_flashed`) };
+        data[exId] = { attempted: g(`${idPrefix}${exId}_attempted`), flashed: g(`${idPrefix}${exId}_flashed`) };
         break;
       case 'circuit': {
         const grades = (ex.circuitGrades || []).map((gr, idx) => {
           const entry = { grade: gr.value };
-          if (ex.circuitTracking === 'attempts+sends') entry.attempts = g(`ex_${exId}_${idx}_att`);
-          entry.sends = g(`ex_${exId}_${idx}_sends`);
+          if (ex.circuitTracking === 'attempts+sends') entry.attempts = g(`${idPrefix}${exId}_${idx}_att`);
+          entry.sends = g(`${idPrefix}${exId}_${idx}_sends`);
           return entry;
         });
         data[exId] = { grades };
@@ -1701,20 +1721,28 @@ function renderProgress() {
     return;
   }
   const builtinLabel = { A: 'Strength', B: 'Power Endurance', C: 'Volume' };
+  // `visible` always starts at index 0 of `sessions` (it's either the whole
+  // array or a slice(0, 10) of it), so the map index below IS the real index
+  // into `sessions` — that's what identifies a session for editing.
   const visible = logShowAll ? sessions : sessions.slice(0, 10);
-  const rows = visible.map(s => {
+  const rows = visible.map((s, idx) => {
     const wid   = sessionWorkoutId(s);
     const label = s.workoutName || builtinLabel[wid] || wid || 'Session';
     const dotCls = s.day === 'A' ? '' : s.day === 'B' ? ' day-b' : s.day === 'C' ? ' day-c' : ' day-custom';
     const pct = sessionCompleteness(s);
-    return `<div class="log-item">
-      <div class="log-dot${dotCls}"></div>
-      <div class="log-item-body">
-        <div class="log-date">${s.date}</div>
-        <div class="log-type">${label}</div>
-        ${s.notes ? `<div class="log-note">${s.notes}</div>` : ''}
+    const isEditing = editingSessionIdx === idx;
+    return `<div class="log-entry">
+      <div class="log-item">
+        <div class="log-dot${dotCls}"></div>
+        <div class="log-item-body">
+          <div class="log-date">${s.date}</div>
+          <div class="log-type">${label}</div>
+          ${s.notes ? `<div class="log-note">${s.notes}</div>` : ''}
+        </div>
+        ${pct != null ? completionRing(pct) : ''}
+        <button class="btn-edit-sm" onclick="toggleEditSession(${idx})">${isEditing ? 'Close' : 'Correct'}</button>
       </div>
-      ${pct != null ? completionRing(pct) : ''}
+      ${isEditing ? renderSessionEditPanel(s, idx) : ''}
     </div>`;
   }).join('');
 
@@ -1729,6 +1757,58 @@ function renderProgress() {
 
 function toggleLogShowAll() {
   logShowAll = !logShowAll;
+  renderProgress();
+}
+
+// ── CORRECT A PAST SESSION ───────────────────────────────────────────────
+function toggleEditSession(idx) {
+  editingSessionIdx = editingSessionIdx === idx ? null : idx;
+  renderProgress();
+  if (editingSessionIdx !== null) {
+    document.getElementById(`session-edit-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function renderSessionEditPanel(s, idx) {
+  const workout = getWorkoutDef(sessionWorkoutId(s));
+  const exIds   = workout ? (workout.exercises || []) : [];
+  const prefix  = `edit_${idx}_`;
+
+  let html = `<div class="session-edit-panel" id="session-edit-${idx}">
+    <div class="input-row"><label>Date</label>
+      <input type="date" id="${prefix}date" value="${s.date}">
+    </div>`;
+
+  exIds.forEach(id => {
+    const ex = findExercise(id);
+    if (ex) html += renderExerciseBlock(ex, s.exercises?.[id], { idPrefix: prefix, fill: 'value' });
+  });
+
+  html += `<div class="input-row"><label>Notes</label>
+      <textarea id="${prefix}notes">${s.notes || ''}</textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-primary" style="margin-top:0" onclick="saveEditedSession(${idx})">Save corrections</button>
+      <button class="btn-edit-sm" onclick="toggleEditSession(${idx})">Cancel</button>
+    </div>
+  </div>`;
+  return html;
+}
+
+function saveEditedSession(idx) {
+  const s = sessions[idx];
+  if (!s) return;
+  const workout = getWorkoutDef(sessionWorkoutId(s));
+  const exIds   = workout ? (workout.exercises || []) : [];
+  const prefix  = `edit_${idx}_`;
+
+  const dateVal = document.getElementById(`${prefix}date`)?.value;
+  if (dateVal) s.date = dateVal;
+  s.exercises = collectExerciseDataFor(exIds, prefix);
+  s.notes = document.getElementById(`${prefix}notes`)?.value || '';
+
+  save('sessions', sessions);
+  editingSessionIdx = null;
   renderProgress();
 }
 
