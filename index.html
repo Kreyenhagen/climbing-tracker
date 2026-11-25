@@ -293,6 +293,10 @@
     outline: none; -webkit-appearance: none;
   }
   .ex-select:focus { border-color: rgba(90,158,15,0.35); }
+  /* Unchosen grade dropdown (showing last session's grade as a hint, or the blank
+     label) reads gray like an input placeholder; see gradeSelectHtml. */
+  .ex-select:invalid { color: var(--muted); }
+  .ex-select option { color: var(--text); }
 
   /* Campus L/R grid */
   .campus-grid {
@@ -433,6 +437,28 @@
   .clg-hdr { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; text-align: center; }
   .clg-label { font-size: 12px; font-family: 'DM Mono', monospace; display: flex; align-items: center; gap: 5px; }
 
+  /* 4×4 GRID (rounds × problems, each cell toggles sent ✓ / blank = fell) */
+  .fbf-grid {
+    display: grid; grid-template-columns: 52px repeat(4, 1fr); gap: 6px; align-items: center;
+  }
+  .fbf-hdr { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; text-align: center; }
+  .fbf-row-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .fbf-grade { padding: 6px 2px; text-align: center; text-align-last: center; font-size: 13px; }
+  .fbf-cell {
+    height: 38px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--muted); font-size: 16px; font-weight: 500; cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+  }
+  .fbf-cell[data-state="sent"] { background: var(--accent-dim); border-color: rgba(90,158,15,0.35); color: var(--accent); }
+  /* Ghost of last session's send, shown only while the cell is still blank (like an input placeholder). */
+  .fbf-cell[data-state=""][data-prev="sent"]::before { content: '✓'; color: var(--accent); opacity: 0.35; }
+  .fbf-footer {
+    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 8px;
+    margin-top: 10px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
+  }
+  .fbf-footer span { white-space: nowrap; }
+  .fbf-summary { color: var(--text); }
+
   /* LOG DOT VARIANTS */
   .log-dot.day-custom { background: #f0b44a; }
 
@@ -547,6 +573,12 @@
         <button class="chart-toggle-btn" data-agg-mode="total" onclick="setCircuitAggMode('total')">Total</button>
       </div>
     </div>
+    <div id="fbf-chart-toggles" class="chart-toggle-row" style="display:none">
+      <div class="chart-toggle-group">
+        <button class="chart-toggle-btn" data-fbf-mode="total" onclick="setFbfAggMode('total')">Grade + sends</button>
+        <button class="chart-toggle-btn" data-fbf-mode="round" onclick="setFbfAggMode('round')">By round</button>
+      </div>
+    </div>
   </div>
   <div class="card">
     <div class="card-label">Recent sessions</div>
@@ -625,6 +657,7 @@
         <option value="sends">Sends (count)</option>
         <option value="campus-lr">Campus Ladder (L/R per rung)</option>
         <option value="circuit">Circuit (grades / colors)</option>
+        <option value="fourbyfour">4×4 (4 rounds × 4 problems, tap sends)</option>
       </select>
     </div>
     <div id="ce-type-config"></div>
@@ -770,7 +803,17 @@ const EX_TYPE_LABELS = {
   weight: 'Weight (lbs)', time: 'Time (sec)', grade: 'V-Grade',
   attempts: 'Attempts', sends: 'Sends', 'campus-lr': 'Campus Ladder',
   circuit: 'Circuit', pyramid: 'Pyramid', 'attempted-flashed': 'Att./Flashed',
+  fourbyfour: '4×4',
 };
+
+// 4×4: FBF_ROUNDS rows (rounds) × FBF_PROBLEMS columns (problems). Each problem
+// gets one V-grade per session; each cell is 'sent' or '' (blank = fell).
+const FBF_ROUNDS   = 4;
+const FBF_PROBLEMS = 4;
+const FBF_CELL_TEXT = { '': '', sent: '✓' };
+// One color per round on the "By round" chart (validated: lightness band, CVD
+// separation and 3:1 contrast against the white card surface).
+const FBF_ROUND_COLORS = ['#5a9e0f', '#1a7aaa', '#d97706', '#7c3aed'];
 const RUNG_COLORS = [
   { L: '#4ab4f0', R: '#1a7aaa' }, { L: '#f0b44a', R: '#b07010' },
   { L: '#a855f7', R: '#7c3aed' }, { L: '#22c55e', R: '#15803d' },
@@ -845,7 +888,7 @@ function availableWorkoutIds() {
 }
 
 // Exercise types that represent actual on-wall climbing, vs. gym/hangboard training
-const CLIMBING_EX_TYPES = ['grade', 'pyramid', 'attempted-flashed', 'circuit', 'sends'];
+const CLIMBING_EX_TYPES = ['grade', 'pyramid', 'attempted-flashed', 'circuit', 'sends', 'fourbyfour'];
 // Climbing exercises take far longer than a gym exercise (flashing, projecting, circuits),
 // so they're weighted heavier when computing what fraction of a session got done. The weight
 // is per-exercise, so it scales cleanly whether a workout has one climbing exercise, several,
@@ -1372,10 +1415,14 @@ function hasExData(d) {
   return Object.values(d).some(v => hasExData(v));
 }
 
+// Most recent session where this exercise was actually logged. Uses
+// isExerciseComplete (not just hasExData) so sessions that only carry
+// auto-filled fields — e.g. 4×4 grades with no cells tapped — are skipped.
 function getLastExData(exId) {
+  const ex = findExercise(exId);
   for (const s of sessions) {
     const d = s.exercises?.[exId];
-    if (hasExData(d)) return d;
+    if (ex ? isExerciseComplete(ex, d) : hasExData(d)) return d;
   }
   return null;
 }
@@ -1399,6 +1446,10 @@ function isExerciseComplete(ex, d) {
       return (d.attempted !== '' && d.attempted != null) || (d.flashed !== '' && d.flashed != null);
     case 'circuit':
       return (d.grades || []).some(g => (g.sends !== '' && g.sends != null) || (g.attempts !== '' && g.attempts != null));
+    case 'fourbyfour':
+      // Problem grades are pre-filled from last session and blank means "fell",
+      // so the 4×4 counts as logged once at least one send is ticked.
+      return (d.rounds || []).some(row => (row || []).includes('sent'));
     default:
       return hasExData(d);
   }
@@ -1440,14 +1491,14 @@ function renderExerciseBlock(ex, prevData, opts = {}) {
   const ph = (val, fallback) => (val && val !== '') ? val : fallback;
   // Real value in correction mode, placeholder hint in the new-session form.
   const fieldAttr = (val, fallback) => isEdit ? `value="${val ?? ''}"` : `placeholder="${ph(val, fallback)}"`;
+  // Same idea for V-grade dropdowns (see gradeSelectHtml).
+  const gradeSel = (id, val, blankLabel, cls) =>
+    gradeSelectHtml(id, isEdit ? { value: val, blankLabel, cls } : { hint: val, blankLabel, cls });
 
   switch (ex.type) {
     case 'grade':
       html += `<div class="ex-single"><label>Max grade sent</label>
-        <select id="${idPrefix}${ex.id}_grade" class="ex-select">
-          <option value="">— select —</option>
-          ${V_GRADES.map(g => `<option${prevData?.grade === g ? ' selected' : ''}>${g}</option>`).join('')}
-        </select></div>`;
+        ${gradeSel(`${idPrefix}${ex.id}_grade`, prevData?.grade, '— select —')}</div>`;
       break;
 
     case 'weight':
@@ -1525,10 +1576,70 @@ function renderExerciseBlock(ex, prevData, opts = {}) {
       html += `</div>`;
       break;
     }
+
+    case 'fourbyfour': {
+      // In the new-session form, last session's problem grades and sends are only
+      // hints (gray grade placeholders, faded ghost ticks); real values are filled
+      // only when correcting a past session. See collectExerciseDataFor for how
+      // grade hints get adopted once the 4×4 is actually done.
+      const prevGrades  = prevData?.grades || [];
+      const prevRounds  = isEdit ? (prevData?.rounds || []) : [];
+      const ghostRounds = isEdit ? [] : (prevData?.rounds || []);
+      html += `<div class="fbf-grid"><div></div>`;
+      for (let p = 0; p < FBF_PROBLEMS; p++) html += `<div class="fbf-hdr">P${p + 1}</div>`;
+      html += `<span class="fbf-row-label">Grade</span>`;
+      for (let p = 0; p < FBF_PROBLEMS; p++) {
+        html += gradeSel(`${idPrefix}${ex.id}_g${p}`, prevGrades[p], '—', 'fbf-grade');
+      }
+      for (let r = 0; r < FBF_ROUNDS; r++) {
+        html += `<span class="fbf-row-label">Round ${r + 1}</span>`;
+        for (let p = 0; p < FBF_PROBLEMS; p++) {
+          const state = prevRounds[r]?.[p] || '';
+          const ghost = ghostRounds[r]?.[p] || '';
+          html += `<button type="button" class="fbf-cell" id="${idPrefix}${ex.id}_r${r}_p${p}"
+            data-state="${state}" data-prev="${ghost}" onclick="toggleFbfCell(this)">${FBF_CELL_TEXT[state]}</button>`;
+        }
+      }
+      html += `</div>
+        <div class="fbf-footer">
+          <span>Tap = sent · blank = fell</span>
+          <span class="fbf-summary">${fbfSummaryText(prevRounds.flat())}</span>
+        </div>`;
+      break;
+    }
   }
 
   html += `</div>`;
   return html;
+}
+
+// V-grade <select> for exercise inputs.
+//  - { hint }:  new-session form. Last session's grade shows as a gray placeholder
+//               option that can't be picked; the select's value stays '' so nothing
+//               is saved unless a grade is actually chosen (same as number inputs).
+//  - { value }: correction form. The saved grade is selected for real.
+// `required` only drives the gray :invalid styling — there is no <form> to validate.
+function gradeSelectHtml(id, { value = '', hint = '', blankLabel = '—', cls = '' } = {}) {
+  const hintOpt = hint ? `<option value="" disabled selected hidden>${hint}</option>` : '';
+  return `<select id="${id}" class="ex-select${cls ? ' ' + cls : ''}" required${hint ? ` data-hint="${hint}"` : ''}>
+    ${hintOpt}<option value="">${blankLabel}</option>
+    ${V_GRADES.map(g => `<option${g === value ? ' selected' : ''}>${g}</option>`).join('')}
+  </select>`;
+}
+
+// cells: flat list of 4×4 cell states ('sent' | '' = fell).
+function fbfSummaryText(cells) {
+  const sent = cells.filter(c => c === 'sent').length;
+  return `${sent}/${FBF_ROUNDS * FBF_PROBLEMS} sent`;
+}
+
+function toggleFbfCell(btn) {
+  const state = btn.dataset.state === 'sent' ? '' : 'sent';
+  btn.dataset.state = state;
+  btn.textContent = FBF_CELL_TEXT[state];
+  const block = btn.closest('.exercise-block');
+  const cells = [...block.querySelectorAll('.fbf-cell')].map(b => b.dataset.state);
+  block.querySelector('.fbf-summary').textContent = fbfSummaryText(cells);
 }
 
 function collectExerciseData() {
@@ -1581,6 +1692,21 @@ function collectExerciseDataFor(exIds, idPrefix) {
           return entry;
         });
         data[exId] = { grades };
+        break;
+      }
+      case 'fourbyfour': {
+        const rounds = Array.from({ length: FBF_ROUNDS }, (_, r) =>
+          Array.from({ length: FBF_PROBLEMS }, (_, p) =>
+            document.getElementById(`${idPrefix}${exId}_r${r}_p${p}`)?.dataset.state || ''));
+        // Problems usually repeat between sessions, so a grade left on its hint
+        // (last session's grade) is adopted — but only if the 4×4 was actually done
+        // this time (at least one send). A skipped 4×4 saves nothing.
+        const done = rounds.some(row => row.includes('sent'));
+        const grades = Array.from({ length: FBF_PROBLEMS }, (_, p) => {
+          const sel = document.getElementById(`${idPrefix}${exId}_g${p}`);
+          return sel?.value || (done && sel?.dataset.hint) || '';
+        });
+        data[exId] = { grades, rounds };
         break;
       }
     }
@@ -2013,6 +2139,24 @@ function renderCircuitToggles() {
   wrap.querySelectorAll('[data-agg-mode]').forEach(b => b.classList.toggle('active', b.dataset.aggMode === circuitAggMode));
 }
 
+// 4×4 chart display option — persisted across sessions.
+let fbfAggMode = load('fbfAggMode', 'total'); // 'total' | 'round'
+
+function setFbfAggMode(mode) {
+  fbfAggMode = mode;
+  save('fbfAggMode', mode);
+  renderFbfToggles();
+  drawExerciseChart(currentExTab);
+}
+
+function renderFbfToggles() {
+  const ex   = findExercise(currentExTab);
+  const wrap = document.getElementById('fbf-chart-toggles');
+  if (!ex || ex.type !== 'fourbyfour') { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+  wrap.querySelectorAll('[data-fbf-mode]').forEach(b => b.classList.toggle('active', b.dataset.fbfMode === fbfAggMode));
+}
+
 function renderExerciseChart() {
   const allEx = getAllExercises();
   const withData = allEx.filter(ex => sessions.some(s => s.exercises && s.exercises[ex.id]));
@@ -2023,6 +2167,7 @@ function renderExerciseChart() {
     document.getElementById('ex-chart').style.display = 'none';
     document.getElementById('ex-chart-empty').style.display = 'block';
     document.getElementById('circuit-chart-toggles').style.display = 'none';
+    document.getElementById('fbf-chart-toggles').style.display = 'none';
     return;
   }
   if (!currentExTab || !withData.find(ex => ex.id === currentExTab)) {
@@ -2056,6 +2201,7 @@ function renderExerciseChart() {
     </div>
   `).join('');
   renderCircuitToggles();
+  renderFbfToggles();
   drawExerciseChart(currentExTab);
 }
 
@@ -2093,6 +2239,7 @@ function drawExerciseChart(exId) {
 
   let series = [];
   let axisUnit = 'lbs';
+  let fixedRange = null; // [min, max] for y-axis when the value has a known ceiling; otherwise auto-fit
   const CHART_COLORS = ['#5a9e0f','#4ab4f0','#a855f7','#f97316','#ef4444','#fbbf24','#22c55e','#ec4899','#1a7aaa','#6ee7b7'];
 
   switch (ex.type) {
@@ -2190,6 +2337,26 @@ function drawExerciseChart(exId) {
       }
       break;
     }
+
+    case 'fourbyfour': {
+      // Blank = fell, so a session with no sends at all is treated as "4×4 skipped";
+      // within a logged session every round counts, including a 0-send round.
+      const logged = relevantSessions.filter(s => isExerciseComplete(ex, s.exercises[exId]));
+
+      // Default view is its own bar + line chart with two axes.
+      if (fbfAggMode !== 'round') { drawFbfOverviewChart(exId, logged, canvas, emptyEl); return; }
+
+      axisUnit = `sends (of ${FBF_PROBLEMS})`;
+      fixedRange = [0, FBF_PROBLEMS];
+      for (let r = 0; r < FBF_ROUNDS; r++) {
+        const p = logged.map(s => ({ date: s.date, value: fbfSentCount(s.exercises[exId].rounds?.[r]) }));
+        // Rounds often tie (e.g. R1 and R2 both 4/4), so nudge each line a couple
+        // of px apart; otherwise the later round's line hides the earlier one.
+        if (p.length) series.push({ label: `Round ${r + 1}`, color: FBF_ROUND_COLORS[r % FBF_ROUND_COLORS.length],
+                                    yOffset: (r - (FBF_ROUNDS - 1) / 2) * 2, points: p });
+      }
+      break;
+    }
   }
 
   series = series.filter(s => s.points.length);
@@ -2229,8 +2396,8 @@ function drawExerciseChart(exId) {
   const rawMin  = Math.min(...allVals);
   const rawMax  = Math.max(...allVals);
   const spread  = rawMax - rawMin || rawMax * 0.2 || 1;
-  const minVal  = isGrade ? Math.max(0, rawMin - 1) : Math.max(0, rawMin - spread * 0.15);
-  const maxVal  = isGrade ? rawMax + 1 : rawMax + spread * 0.15;
+  const minVal  = fixedRange ? fixedRange[0] : isGrade ? Math.max(0, rawMin - 1) : Math.max(0, rawMin - spread * 0.15);
+  const maxVal  = fixedRange ? fixedRange[1] : isGrade ? rawMax + 1 : rawMax + spread * 0.15;
   const valRange = maxVal - minVal;
 
   const xPos = i => PAD.left + (n === 1 ? W / 2 : (i / (n - 1)) * W);
@@ -2279,8 +2446,10 @@ function drawExerciseChart(exId) {
 
   // Draw each series
   series.forEach(s => {
+    // yOffset (optional, px) separates lines that share values; labels stay on the true value.
     const pts = s.points
-      .map(p => ({ x: xPos(dateIndex[p.date]), y: yPos(p.value), v: p.value, vLabel: p.vLabel || String(p.value) }));
+      .map(p => ({ x: xPos(dateIndex[p.date]), y: yPos(p.value) + (s.yOffset || 0), ly: yPos(p.value),
+                   v: p.value, vLabel: p.vLabel || String(p.value) }));
     if (!pts.length) return;
 
     ctx.beginPath();
@@ -2302,7 +2471,7 @@ function drawExerciseChart(exId) {
       ctx.fillStyle = s.color; ctx.fill();
       if (showAll || i === 0 || i === pts.length - 1) {
         ctx.fillStyle = s.color;
-        ctx.fillText(p.vLabel, p.x, p.y - 9);
+        ctx.fillText(p.vLabel, p.x, p.ly - 9);
       }
     });
   });
@@ -2313,6 +2482,145 @@ function drawExerciseChart(exId) {
     const d = new Date(date + 'T12:00:00');
     ctx.fillStyle = mutedCol;
     ctx.fillText(d.toLocaleString('default', { month: 'short' }) + ' ' + d.getDate(), xPos(i), PAD.top + LEGEND_H + H + 16);
+  });
+}
+
+// ── 4×4 OVERVIEW CHART ────────────────────────────────────────────────────
+function fbfSentCount(row) { return (row || []).filter(c => c === 'sent').length; }
+
+// Average of a 4×4 session's problem grades as a V-index (V4.5 → 4.5); problems
+// with no grade set are left out. null if no problem has a grade.
+function fbfAvgGrade(d) {
+  const idx = (d?.grades || []).map(g => V_GRADES.indexOf(g)).filter(i => i >= 0);
+  return idx.length ? idx.reduce((a, b) => a + b, 0) / idx.length : null;
+}
+
+// Total sends as bars (right axis, fixed 0–16) behind a line of the session's
+// average problem grade (left axis). Both axes are split into the same 4 steps
+// so they share one set of gridlines instead of two competing grids.
+function drawFbfOverviewChart(exId, logged, canvas, emptyEl) {
+  const MAX_SENDS   = FBF_ROUNDS * FBF_PROBLEMS;
+  const GRADE_COLOR = '#5a9e0f';
+  const SENDS_COLOR = '#1a7aaa';
+  const mutedCol    = '#7a8070';
+  const gridColor   = 'rgba(0,0,0,0.06)';
+  const STEPS       = 4;
+
+  const rows = logged.map(s => {
+    const d = s.exercises[exId];
+    return { date: s.date, avg: fbfAvgGrade(d),
+             sends: (d.rounds || []).reduce((n, row) => n + fbfSentCount(row), 0) };
+  });
+  if (!rows.length) { canvas.style.display = 'none'; emptyEl.style.display = 'block'; return; }
+  canvas.style.display = 'block';
+  emptyEl.style.display = 'none';
+
+  const LEGEND_H = 22;
+  const dpr  = window.devicePixelRatio || 1;
+  const cssW = canvas.parentElement.clientWidth - 32;
+  const cssH = 200 + LEGEND_H;
+  canvas.style.width  = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  canvas.width  = cssW * dpr;
+  canvas.height = cssH * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  const PAD  = { top: 24, right: 40, bottom: 44, left: 48 };
+  const W    = cssW - PAD.left - PAD.right;
+  const H    = 200 - PAD.top - PAD.bottom;
+  const top  = PAD.top + LEGEND_H;
+  const base = top + H;
+
+  // Grade axis: STEPS whole-grade steps centred on the data, wide enough for the
+  // full range plus a grade of headroom (e.g. averages V4–V4.5 → V2…V6).
+  const avgs = rows.map(r => r.avg).filter(v => v != null);
+  let gStep = 1, gLo = 0;
+  if (avgs.length) {
+    const mn = Math.min(...avgs), mx = Math.max(...avgs);
+    gStep = Math.max(1, Math.ceil((mx - mn + 1) / STEPS));
+    gLo   = Math.max(0, Math.round((mn + mx) / 2 - (STEPS / 2) * gStep));
+  }
+  const gHi = gLo + STEPS * gStep;
+
+  const n     = rows.length;
+  const slot  = W / n;
+  const xPos  = i => PAD.left + slot * (i + 0.5);   // inset so edge bars aren't clipped
+  const yG    = v => base - ((v - gLo) / (gHi - gLo)) * H;
+  const yS    = v => base - (v / MAX_SENDS) * H;
+  const barW  = Math.min(28, slot * 0.6);
+  const fmtGrade = v => 'V' + (Math.round(v * 10) / 10);
+
+  // Legend: line swatch for grade, bar swatch for sends.
+  ctx.font = '10px DM Mono, monospace'; ctx.textAlign = 'left';
+  ctx.strokeStyle = GRADE_COLOR; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(PAD.left, 10); ctx.lineTo(PAD.left + 14, 10); ctx.stroke();
+  ctx.fillStyle = GRADE_COLOR; ctx.beginPath(); ctx.arc(PAD.left + 7, 10, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = mutedCol; ctx.fillText('Avg grade', PAD.left + 20, 14);
+  const lx2 = PAD.left + 110;
+  ctx.fillStyle = hexToRgba(SENDS_COLOR, 0.35); ctx.fillRect(lx2, 5, 10, 10);
+  ctx.fillStyle = mutedCol; ctx.fillText(`Sends (of ${MAX_SENDS})`, lx2 + 16, 14);
+
+  // Shared gridlines; grade labels on the left, sends labels on the right.
+  for (let i = 0; i <= STEPS; i++) {
+    const y = base - (i / STEPS) * H;
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + W, y); ctx.stroke();
+    ctx.fillStyle = mutedCol; ctx.font = '10px DM Mono, monospace';
+    if (avgs.length) {
+      const gi = gLo + i * gStep;
+      ctx.textAlign = 'right'; ctx.fillText(V_GRADES[gi] || 'V' + gi, PAD.left - 6, y + 3);
+    }
+    ctx.textAlign = 'left'; ctx.fillText(String((MAX_SENDS / STEPS) * i), PAD.left + W + 6, y + 3);
+  }
+
+  // Axis titles.
+  ctx.font = '9px DM Mono, monospace'; ctx.fillStyle = mutedCol; ctx.textAlign = 'center';
+  ctx.save(); ctx.translate(11, top + H / 2); ctx.rotate(-Math.PI / 2); ctx.fillText('avg grade', 0, 0); ctx.restore();
+  ctx.save(); ctx.translate(cssW - 6, top + H / 2); ctx.rotate(Math.PI / 2); ctx.fillText('sends', 0, 0); ctx.restore();
+
+  // Bars (behind the line), with the send count inside the foot of each bar.
+  rows.forEach((r, i) => {
+    if (!r.sends) return;
+    const x = xPos(i) - barW / 2, y = yS(r.sends), h = base - y;
+    ctx.fillStyle = hexToRgba(SENDS_COLOR, 0.28);
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, barW, h, [4, 4, 0, 0]); else ctx.rect(x, y, barW, h);
+    ctx.fill();
+    if (n <= 10 && h >= 16) {
+      ctx.font = '9px DM Mono, monospace'; ctx.textAlign = 'center'; ctx.fillStyle = SENDS_COLOR;
+      ctx.fillText(String(r.sends), xPos(i), base - 5);
+    }
+  });
+
+  // Average grade line + dots (with a surface ring so they sit cleanly on the bars).
+  const pts = rows.map((r, i) => r.avg == null ? null : { x: xPos(i), y: yG(r.avg), v: r.avg }).filter(Boolean);
+  if (pts.length) {
+    ctx.beginPath();
+    ctx.strokeStyle = GRADE_COLOR; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.stroke();
+    ctx.font = '9px DM Mono, monospace'; ctx.textAlign = 'center';
+    const showAll = pts.length <= 6;
+    pts.forEach((p, i) => {
+      ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fillStyle = GRADE_COLOR; ctx.fill();
+      if (showAll || i === 0 || i === pts.length - 1) {
+        ctx.fillStyle = GRADE_COLOR;
+        ctx.fillText(fmtGrade(p.v), p.x, p.y - 9);
+      }
+    });
+  }
+
+  // Date labels, thinned out when there are many sessions so they don't collide.
+  // Counted back from the newest so the latest session is always labelled.
+  const every = Math.ceil(n / 6);
+  ctx.font = '9px DM Mono, monospace'; ctx.textAlign = 'center'; ctx.fillStyle = mutedCol;
+  rows.forEach((r, i) => {
+    if ((n - 1 - i) % every !== 0) return;
+    const d = new Date(r.date + 'T12:00:00');
+    ctx.fillText(d.toLocaleString('default', { month: 'short' }) + ' ' + d.getDate(), xPos(i), base + 16);
   });
 }
 
